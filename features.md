@@ -18,5 +18,7 @@ include a graph of donations over the last 10 years only if there were any
 consider two charities the same if their tax-id is the same. Dont go by their name
 use charity navigator api to look up description of a charity
 use that description in the detailed report
+make a list of charities that meet this criterion: we have donated to them consistently over the last 5 years, and in amounts exceeding 500 per year
+
 
 

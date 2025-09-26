@@ -5,8 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "great-tables>=0.18.0",
     "matplotlib>=3.10.6",
     "pandas>=2.3.2",
     "requests>=2.32.5",
     "seaborn>=0.13.2",
+    "selenium>=4.35.0",
+    "tabulate>=0.9.0",
 ]
