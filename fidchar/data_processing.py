@@ -7,7 +7,6 @@ Handles CSV reading, data cleaning, and type conversion.
 import pandas as pd
 import re
 
-
 def parse_amount(amount_str):
     """Convert amount string like '$1,000.00' to float"""
     if pd.isna(amount_str) or amount_str == "":
@@ -17,10 +16,13 @@ def parse_amount(amount_str):
     return float(cleaned)
 
 
-def read_donation_data():
+def read_donation_data(file_path="../data.csv"):
     """Read and parse the CSV donation data"""
     # Read the CSV file starting from the actual data (no need to skip rows)
-    df = pd.read_csv("../data.csv")
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"data.csv file not found at {file_path}")
 
     # Clean column names
     df.columns = df.columns.str.strip()

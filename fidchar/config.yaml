@@ -1,0 +1,61 @@
+# Charitable Donation Analysis Configuration
+
+# Input data file path
+input_file: "../data.csv"
+
+# Output format settings
+generate_pdf: false  # PDF generation (disabled - use browser Print to PDF instead)
+generate_markdown: true  # Generate markdown analysis report
+
+# Report sections in order with optional configuration
+# Available sections:
+# - exec: Executive Summary
+# - sectors: Donation Analysis by Charitable Sector
+# - consistent: Consistent Donors Analysis
+# - yearly: Yearly Donation Analysis
+# - top_charities: Top 10 Charities by Total Donations
+# - patterns: One-Time vs Recurring Donation Patterns
+# - detailed: Detailed Analysis of Top 10 Charities
+
+sections:
+  - name: exec
+    # Executive Summary - no options yet
+
+  - name: sectors
+    # Donation Analysis by Charitable Sector
+    # options:
+    #   show_percentages: true
+
+  - name: consistent
+    # Consistent Donors Analysis
+    # options:
+    #   min_years: 5
+    #   min_amount: 500
+
+  - name: yearly
+    # Yearly Donation Analysis
+    # options:
+    #   include_charts: true
+
+  - name: top_charities
+    # Top 10 Charities by Total Donations
+    # options:
+    #   count: 10
+
+  - name: patterns
+    # One-Time vs Recurring Donation Patterns
+    # options:
+    #   max_one_time_shown: 20
+
+  - name: detailed
+    # Detailed Analysis of Top 10 Charities
+    # options:
+    #   include_descriptions: true
+
+# Output directory
+output_dir: "../output"
+
+# Charity Navigator API settings (optional)
+charity_navigator:
+  app_id: "3069"
+  app_key: null  # Set environment variable CHARITY_NAVIGATOR_APP_KEY

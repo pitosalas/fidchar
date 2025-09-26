@@ -61,8 +61,6 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
 
 def create_charity_yearly_graphs(top_charities, charity_details):
     """Create Tufte-style minimalist yearly donation graphs for each top charity"""
-    current_year = datetime.now().year
-    last_10_years = list(range(current_year - 9, current_year + 1))
     created_graphs = {}
 
     for i, (tax_id, charity_data) in enumerate(top_charities.iterrows(), 1):
@@ -73,33 +71,32 @@ def create_charity_yearly_graphs(top_charities, charity_details):
         donations["Year"] = donations["Submit Date"].dt.year
         yearly_totals = donations.groupby("Year")["Amount_Numeric"].sum()
 
-        # Create complete year range with zeros for missing years
-        year_amounts = []
-        has_recent_donations = False
-        for year in last_10_years:
-            amount = yearly_totals.get(year, 0)
-            year_amounts.append(amount)
-            if amount > 0:
-                has_recent_donations = True
-
-        # Only create graph if there were donations in the last 10 years
-        if not has_recent_donations:
+        # Get all years from the data (full history)
+        all_years = sorted(yearly_totals.index)
+        if not all_years:
             created_graphs[tax_id] = None
             continue
 
-        _create_single_charity_graph(i, tax_id, last_10_years, year_amounts, created_graphs)
+        # Create complete year range from first to last donation year
+        year_range = list(range(min(all_years), max(all_years) + 1))
+        year_amounts = []
+        for year in year_range:
+            amount = yearly_totals.get(year, 0)
+            year_amounts.append(amount)
+
+        _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_graphs)
 
     return created_graphs
 
 
-def _create_single_charity_graph(i, tax_id, last_10_years, year_amounts, created_graphs):
+def _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_graphs):
     """Create individual charity graph (split for line length compliance)"""
     # Create very small, embedded thumbnail graph
     fig, ax = plt.subplots(figsize=(3, 1.5))  # Very compact for embedding
 
     # Use seaborn color palette
     color = sns.color_palette("husl", 10)[i-1] if i <= 10 else "steelblue"
-    bars = ax.bar(last_10_years, year_amounts, color=color, alpha=0.8, width=0.7)
+    bars = ax.bar(year_range, year_amounts, color=color, alpha=0.8, width=0.7)
 
     # Ultra-minimal: no title for embedded thumbnail
     # Only show essential data
@@ -120,7 +117,11 @@ def _create_single_charity_graph(i, tax_id, last_10_years, year_amounts, created
     ax.tick_params(axis="x", rotation=0)
 
     # Show only first, middle, and last year for compact display
-    years_to_show = [last_10_years[0], last_10_years[4], last_10_years[-1]]
+    num_years = len(year_range)
+    if num_years >= 3:
+        years_to_show = [year_range[0], year_range[num_years//2], year_range[-1]]
+    else:
+        years_to_show = year_range
     ax.set_xticks(years_to_show)
 
     # Remove all spines except bottom (Tufte style)

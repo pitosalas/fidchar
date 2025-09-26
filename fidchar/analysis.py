@@ -70,3 +70,46 @@ def get_charity_details(df, top_charities):
         charity_details[tax_id] = charity_data
 
     return charity_details
+
+
+def analyze_consistent_donors(df):
+    """Find charities with consistent donations over last 5 years, $500+ per year"""
+    current_year = datetime.now().year
+    last_5_years = list(range(current_year - 4, current_year + 1))
+
+    # Group by Tax ID and year to get yearly totals
+    yearly_donations = df.groupby(['Tax ID', 'Year'])['Amount_Numeric'].sum().reset_index()
+
+    consistent_donors = {}
+
+    for tax_id in df['Tax ID'].dropna().unique():
+        charity_yearly = yearly_donations[yearly_donations['Tax ID'] == tax_id]
+
+        # Check if they donated in each of the last 5 years with $500+ each year
+        qualifying_years = 0
+        yearly_amounts = {}
+
+        for year in last_5_years:
+            year_data = charity_yearly[charity_yearly['Year'] == year]
+            if not year_data.empty:
+                total_amount = year_data['Amount_Numeric'].sum()
+                if total_amount >= 500:
+                    qualifying_years += 1
+                    yearly_amounts[year] = total_amount
+                else:
+                    break  # Not consistent if any year is below $500
+            else:
+                break  # Not consistent if missing any year
+
+        # Must have all 5 years with $500+ each
+        if qualifying_years == 5:
+            org_info = df[df['Tax ID'] == tax_id].iloc[0]
+            consistent_donors[tax_id] = {
+                'organization': org_info['Organization'],
+                'sector': org_info['Charitable Sector'],
+                'yearly_amounts': yearly_amounts,
+                'total_5_year': sum(yearly_amounts.values()),
+                'average_per_year': sum(yearly_amounts.values()) / 5
+            }
+
+    return consistent_donors

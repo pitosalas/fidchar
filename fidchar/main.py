@@ -5,10 +5,12 @@ Coordinates data processing, analysis, visualization, and reporting.
 """
 
 import os
+import shutil
+import yaml
 from data_processing import read_donation_data
 from analysis import (
     analyze_by_category, analyze_by_year, analyze_donation_patterns,
-    get_top_charities_basic, get_charity_details
+    get_top_charities_basic, get_charity_details, analyze_consistent_donors
 )
 from visualization import create_yearly_histograms, create_charity_yearly_graphs
 from reporting import generate_console_report, get_charity_descriptions
@@ -32,11 +34,41 @@ def analyze_top_charities(df, top_n=10, app_id=None, app_key=None):
     return top_charities, charity_details, charity_descriptions, graph_info
 
 
+def load_config():
+    """Load configuration from YAML file"""
+    try:
+        with open("config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+        return config
+    except FileNotFoundError:
+        print("Warning: config.yaml not found, using defaults")
+        return {
+            "input_file": "../data.csv",
+            "generate_pdf": False,
+            "sections": [1, 2, 3, 4, 5, 6, 7],
+            "output_dir": "../output",
+            "charity_navigator": {"app_id": "3069", "app_key": None}
+        }
+
+
 def main():
     """Main program execution"""
     try:
+        # Load configuration
+        config = load_config()
+        input_file = config["input_file"]
+        generate_pdf = config["generate_pdf"]
+        output_dir = config["output_dir"]
+
+        # Clean output directory before generating new reports
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+        print("Cleaned output directory")
+
         # Read the donation data
-        df = read_donation_data()
+        print(f"Processing input file: {input_file}")
+        df = read_donation_data(input_file)
 
         # Analyze by category
         category_totals = analyze_by_category(df)
@@ -44,29 +76,42 @@ def main():
         # Analyze by year
         yearly_amounts, yearly_counts = analyze_by_year(df)
 
-        # Generate console report
-        generate_console_report(category_totals)
-
         # Create histograms
         create_yearly_histograms(yearly_amounts, yearly_counts)
 
         # Analyze donation patterns
         one_time, stopped_recurring = analyze_donation_patterns(df)
 
-        # Analyze top charities (add your Charity Navigator API credentials here)
-        app_id = os.getenv("CHARITY_NAVIGATOR_APP_ID", "3069")  # Your app ID
-        app_key = os.getenv("CHARITY_NAVIGATOR_APP_KEY")  # You need to provide the app_key
+        # Analyze consistent donors over last 5 years
+        consistent_donors = analyze_consistent_donors(df)
+
+        # Analyze top charities using config
+        app_id = config["charity_navigator"]["app_id"]
+        app_key = config["charity_navigator"]["app_key"] or os.getenv("CHARITY_NAVIGATOR_APP_KEY")
         top_charities, charity_details, charity_descriptions, graph_info = analyze_top_charities(
             df, app_id=app_id, app_key=app_key
         )
 
-        # Generate markdown report
-        generate_markdown_report(
-            category_totals, yearly_amounts, yearly_counts, df, one_time, stopped_recurring,
-            top_charities, charity_details, charity_descriptions, graph_info
-        )
+        # Generate reports
+        print("Generating reports...")
+        if config.get("generate_markdown", True):
+            generate_markdown_report(
+                category_totals, yearly_amounts, yearly_counts, df, one_time, stopped_recurring,
+                top_charities, charity_details, charity_descriptions, graph_info, consistent_donors, config
+            )
 
-        print("\nReports generated in ../output/ directory")
+        print("Reports generated:")
+        print("  - ../output/comprehensive_report.html")
+        if config.get("generate_markdown", True):
+            print("  - ../output/donation_analysis.md")
+        print("  - Various PNG charts and tables")
+
+        # Generate PDF from HTML (if enabled in config)
+        if generate_pdf:
+            print("PDF generation disabled - use 'Print to PDF' from your browser")
+            print(f"Open: {output_dir}/comprehensive_report.html in your browser")
+        else:
+            print("PDF generation disabled in config.yaml")
 
     except FileNotFoundError:
         print("Error: data.csv file not found")
