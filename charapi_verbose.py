@@ -5,18 +5,6 @@ import csv
 from charapi import evaluate_charity
 from charapi.data.charity_evaluation_result import MetricCategory, MetricStatus
 
-def calculate_grade(score):
-    if score >= 90:
-        return "A"
-    elif score >= 75:
-        return "B"
-    elif score >= 60:
-        return "C"
-    elif score >= 45:
-        return "D"
-    else:
-        return "F"
-
 def status_symbol(status):
     if status == MetricStatus.OUTSTANDING:
         return "⭐"
@@ -53,14 +41,11 @@ def extract_unique_eins(csv_path):
     return sorted(eins)
 
 def write_charity_report(result, file):
-    grade = calculate_grade(result.score)
-
     print(f"\nEvaluating charity with EIN: {result.ein}", file=file)
     print("=" * 80, file=file)
 
     print(f"\n{result.organization_name}", file=file)
     print(f"EIN: {result.ein}", file=file)
-    print(f"Overall Score: {result.score:.1f}/100 (Grade: {grade})", file=file)
 
     print(f"\n{'SUMMARY'}", file=file)
     print(f"{result.summary}", file=file)
