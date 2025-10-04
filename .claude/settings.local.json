@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(uv add:*)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Read(//Users/pitosalas/mydev/charapi/charapi/**)",
+      "Read(//Users/pitosalas/mydev/charapi/**)"
     ],
     "deny": [],
     "ask": []
