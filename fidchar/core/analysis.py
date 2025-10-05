@@ -72,12 +72,17 @@ def get_charity_details(df, top_charities):
     return charity_details
 
 
-def analyze_consistent_donors(df):
-    """Find charities with consistent donations over last 5 years, $500+ per year"""
-    current_year = datetime.now().year
-    last_5_years = list(range(current_year - 4, current_year + 1))
+def analyze_consistent_donors(df, min_years=5, min_amount=500):
+    """Find charities with consistent donations over specified years and minimum amount
 
-    # Group by Tax ID and year to get yearly totals
+    Args:
+        df: DataFrame with donation data
+        min_years: Minimum number of consecutive years required (default: 5)
+        min_amount: Minimum amount per year required (default: $500)
+    """
+    current_year = datetime.now().year
+    year_range = list(range(current_year - min_years + 1, current_year + 1))
+
     yearly_donations = df.groupby(['Tax ID', 'Year'])['Amount_Numeric'].sum().reset_index()
 
     consistent_donors = {}
@@ -85,31 +90,53 @@ def analyze_consistent_donors(df):
     for tax_id in df['Tax ID'].dropna().unique():
         charity_yearly = yearly_donations[yearly_donations['Tax ID'] == tax_id]
 
-        # Check if they donated in each of the last 5 years with $500+ each year
         qualifying_years = 0
         yearly_amounts = {}
 
-        for year in last_5_years:
+        for year in year_range:
             year_data = charity_yearly[charity_yearly['Year'] == year]
             if not year_data.empty:
                 total_amount = year_data['Amount_Numeric'].sum()
-                if total_amount >= 500:
+                if total_amount >= min_amount:
                     qualifying_years += 1
                     yearly_amounts[year] = total_amount
                 else:
-                    break  # Not consistent if any year is below $500
+                    break
             else:
-                break  # Not consistent if missing any year
+                break
 
-        # Must have all 5 years with $500+ each
-        if qualifying_years == 5:
+        if qualifying_years == min_years:
             org_info = df[df['Tax ID'] == tax_id].iloc[0]
             consistent_donors[tax_id] = {
                 'organization': org_info['Organization'],
                 'sector': org_info['Charitable Sector'],
                 'yearly_amounts': yearly_amounts,
                 'total_5_year': sum(yearly_amounts.values()),
-                'average_per_year': sum(yearly_amounts.values()) / 5
+                'average_per_year': sum(yearly_amounts.values()) / min_years
             }
 
     return consistent_donors
+
+
+def analyze_recurring_donations(df):
+    """Extract active recurring donation information (donations in 2024 or 2025)"""
+    recurring_df = df[df["Recurring"].notna() & (df["Recurring"].str.strip() != "")].copy()
+
+    if recurring_df.empty:
+        return pd.DataFrame()
+
+    result = recurring_df.groupby("Tax ID").agg({
+        "Organization": "first",
+        "Amount_Numeric": ["mean", "sum"],
+        "Recurring": "first",
+        "Submit Date": "max"
+    }).reset_index()
+
+    result.columns = ["EIN", "Organization", "Amount", "Total_Ever_Donated", "Period", "Last_Donation_Date"]
+
+    current_year = datetime.now().year
+    result = result[result["Last_Donation_Date"].dt.year >= current_year - 1]
+
+    result = result.sort_values("Amount", ascending=False)
+
+    return result

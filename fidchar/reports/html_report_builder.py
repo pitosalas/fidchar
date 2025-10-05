@@ -6,6 +6,9 @@ Handles the creation of comprehensive HTML reports with all sections.
 
 import pandas as pd
 from datetime import datetime
+from reports.base_report_builder import BaseReportBuilder
+from reports.formatters import HTMLFormatter
+from tables.great_tables_builder import create_gt_recurring_donations_table, create_gt_donation_history_table
 
 
 def generate_html_header_section(total_donations, total_amount, years_covered,
@@ -114,8 +117,39 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
     </div>"""
 
 
+class HTMLReportBuilder(BaseReportBuilder):
+    """HTML report builder with inherited state"""
+
+    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations):
+        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
+        self.formatter = HTMLFormatter()
+
+    def generate_recurring_donations_section(self, recurring_donations, max_shown=20):
+        """Generate HTML for recurring donations section using Great Tables"""
+        if recurring_donations.empty:
+            return """
+    <div class="report-section">
+        <h2 class="section-title">Recurring Donations</h2>
+        <p>No recurring donations found.</p>
+    </div>"""
+
+        gt_table = create_gt_recurring_donations_table(recurring_donations, max_shown)
+        if gt_table is None:
+            return """
+    <div class="report-section">
+        <h2 class="section-title">Recurring Donations</h2>
+        <p>No recurring donations found.</p>
+    </div>"""
+
+        return f"""
+    <div class="report-section">
+        {gt_table.as_raw_html()}
+    </div>"""
+
+
 def generate_table_sections(gt_consistent_html, gt_categories_html,
-                           gt_yearly_html, gt_top_charities_html, consistent_total, config=None):
+                           gt_yearly_html, gt_top_charities_html, consistent_total,
+                           recurring_donations=None, config=None):
     """Generate the main table sections in config-specified order"""
 
     # Get section order from config, default to standard order if not provided
@@ -159,90 +193,38 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
         <h2 class="section-title">Top 10 Charities by Total Donations</h2>
         {gt_top_charities_html}
     </div>"""
+        elif section_id == "recurring":
+            if recurring_donations is not None and not recurring_donations.empty:
+                max_shown = section_options.get("max_shown", 20)
+                builder = HTMLReportBuilder(pd.DataFrame(), config or {}, {}, {}, {}, {})
+                html_content += builder.generate_recurring_donations_section(recurring_donations, max_shown)
 
     return html_content
 
 
 def generate_charity_detail_section(i, tax_id, org_donations, description, has_graph, evaluation):
-    """Generate detailed section for a single charity"""
-    org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
-    sector = org_donations["Charitable Sector"].iloc[0] if pd.notna(org_donations["Charitable Sector"].iloc[0]) else "N/A"
-    graph_filename = f"images/charity_{i:02d}_{tax_id.replace('-', '')}.png"
+    """Generate detailed section for a single charity - wrapper for comprehensive report"""
+    charity_details_dict = {tax_id: org_donations}
+    charity_descriptions = {tax_id: description}
+    graph_info = {tax_id: True} if has_graph else {}
+    charity_evaluations = {tax_id: evaluation}
 
-    html_content = f"""
+    builder = HTMLReportBuilder(pd.DataFrame(), {}, charity_details_dict, charity_descriptions, graph_info, charity_evaluations)
+    formatter = HTMLFormatter()
+
+    data = builder.prepare_charity_detail_data(i, tax_id)
+
+    return f"""
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
-            <h3 style="color: #333; margin-bottom: 15px;">{i}. {org_name}</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
-                <div>
-                    <p><strong>Tax ID:</strong> {tax_id}</p>
-                    <p><strong>Sector:</strong> {sector}</p>
-                    <p><strong>Total Donated:</strong> ${org_donations['Amount_Numeric'].sum():,.2f}</p>
-                    <p><strong>Number of Donations:</strong> {len(org_donations)}</p>
-                </div>"""
-
-    if has_graph:
-        html_content += f"""
-                <div style="text-align: center;">
-                    <img src="{graph_filename}" alt="10-year trend for {org_name}" style="max-width: 100%; height: auto;">
-                    <p style="font-size: 12px; color: #666; margin-top: 5px;">10-Year Donation Trend</p>
-                </div>"""
-    else:
-        html_content += f"""
-                <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 5px;">
-                    <p style="color: #666; font-style: italic;">No donations in last 10 years</p>
-                </div>"""
-
-    html_content += """
-            </div>"""
-
-    # Description if available
-    if description and description != "API credentials not configured":
-        desc_short = description[:200] + "..." if len(description) > 200 else description
-        html_content += f"""
-            <p style="font-style: italic; color: #555; margin-bottom: 15px;">{desc_short}</p>"""
-
-    # Charity evaluation if available
-    if evaluation:
-        html_content += f"""
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-                <h4 style="margin-top: 0;">Charity Evaluation</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                    <div>⭐ Outstanding: {evaluation.outstanding_count}</div>
-                    <div>✓ Acceptable: {evaluation.acceptable_count}</div>
-                    <div>⚠ Unacceptable: {evaluation.unacceptable_count}</div>
-                </div>
-                <p style="margin-top: 10px; font-style: italic; color: #555;">{evaluation.summary}</p>
-            </div>"""
-
-    return html_content
+            {formatter.format_charity_detail_section(data)}
+        </div>"""
 
 
 def generate_donation_history_table(org_donations):
-    """Generate scrollable donation history table"""
-    html_content = f"""
+    """Generate scrollable donation history table using Great Tables"""
+    org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
+    gt_table = create_gt_donation_history_table(org_donations, org_name)
+
+    return f"""
             <h4 style="color: #333; margin-bottom: 10px;">Complete Donation History</h4>
-            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 3px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                    <thead style="background: #f8f9fa; position: sticky; top: 0;">
-                        <tr>
-                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Date</th>
-                            <th style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>"""
-
-    for _, donation in org_donations.iterrows():
-        date_str = donation["Submit Date"].strftime("%m/%d/%Y")
-        amount_str = f"${donation['Amount_Numeric']:,.2f}"
-        html_content += f"""
-                        <tr>
-                            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{date_str}</td>
-                            <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #eee;">{amount_str}</td>
-                        </tr>"""
-
-    html_content += """
-                    </tbody>
-                </table>
-            </div>"""
-
-    return html_content
+            {gt_table.as_raw_html()}"""

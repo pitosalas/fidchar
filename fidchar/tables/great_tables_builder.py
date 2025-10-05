@@ -166,6 +166,92 @@ def create_gt_top_charities_table(top_charities):
     return gt_table
 
 
+def create_gt_recurring_donations_table(recurring_donations, max_shown=20):
+    """Create recurring donations table using Great Tables"""
+    if recurring_donations.empty:
+        return None
+
+    df = recurring_donations.head(max_shown).copy()
+    df = df.rename(columns={
+        'EIN': 'Tax ID',
+        'Amount': 'Annual Amount',
+        'Total_Ever_Donated': 'Total Ever Donated',
+        'Last_Donation_Date': 'Last Donation'
+    })
+
+    total_recurring = recurring_donations['Amount'].sum()
+    total_ever = recurring_donations['Total_Ever_Donated'].sum()
+
+    gt_table = (
+        GT(df[['Tax ID', 'Organization', 'Annual Amount', 'Total Ever Donated', 'Period', 'Last Donation']])
+        .tab_header(
+            title="Recurring Donations",
+            subtitle=f"{len(recurring_donations)} organizations with active recurring donations"
+        )
+        .fmt_currency(columns=['Annual Amount', 'Total Ever Donated'], currency="USD", decimals=2)
+        .fmt_date(columns='Last Donation', date_style='iso')
+        .cols_align(align="center", columns="Tax ID")
+        .cols_align(align="left", columns=["Organization", "Period"])
+        .cols_align(align="right", columns=['Annual Amount', 'Total Ever Donated'])
+        .cols_align(align="center", columns="Last Donation")
+        .tab_source_note(
+            source_note=f"Total annual recurring: ${total_recurring:,.2f} | Total ever donated: ${total_ever:,.2f}"
+        )
+        .tab_options(
+            table_font_size="12px",
+            heading_title_font_size="15px",
+            heading_subtitle_font_size="11px",
+            source_notes_font_size="11px",
+            data_row_padding="3px",
+            table_width="900px",
+            table_border_top_style="none",
+            table_border_bottom_style="solid",
+            table_border_bottom_width="1px",
+            column_labels_border_bottom_style="solid",
+            column_labels_border_bottom_width="1px",
+            table_body_hlines_style="none"
+        )
+    )
+
+    return gt_table
+
+
+def create_gt_donation_history_table(org_donations, org_name):
+    """Create donation history table using Great Tables"""
+    df = org_donations[['Submit Date', 'Amount_Numeric']].copy()
+    df = df.rename(columns={'Submit Date': 'Date', 'Amount_Numeric': 'Amount'})
+    df = df.sort_values('Date', ascending=False)
+
+    gt_table = (
+        GT(df)
+        .tab_header(
+            title=f"Donation History: {org_name}",
+            subtitle=f"{len(df)} donations totaling ${df['Amount'].sum():,.2f}"
+        )
+        .fmt_date(columns='Date', date_style='iso')
+        .fmt_currency(columns='Amount', currency="USD", decimals=2)
+        .cols_align(align="center", columns="Date")
+        .cols_align(align="right", columns="Amount")
+        .tab_options(
+            table_font_size="11px",
+            heading_title_font_size="14px",
+            heading_subtitle_font_size="10px",
+            data_row_padding="2px",
+            table_width="350px",
+            table_border_top_style="none",
+            table_border_bottom_style="solid",
+            table_border_bottom_width="1px",
+            column_labels_border_bottom_style="solid",
+            column_labels_border_bottom_width="1px",
+            table_body_hlines_style="none",
+            container_height="300px",
+            container_overflow_y="auto"
+        )
+    )
+
+    return gt_table
+
+
 def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_counts,
                                    consistent_donors, top_charities, total_amount, df,
                                    one_time, stopped_recurring, charity_details=None,
@@ -232,32 +318,14 @@ def save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
         with open("../output/gt_top_charities.html", "w") as f:
             f.write(gt_top_charities.as_raw_html())
 
-        # Create comprehensive HTML report
-        if df is not None and one_time is not None and stopped_recurring is not None:
-            comprehensive_html = create_comprehensive_html_report(
-                category_totals, yearly_amounts, yearly_counts,
-                consistent_donors, top_charities, total_amount, df,
-                one_time, stopped_recurring, charity_details,
-                charity_descriptions, graph_info, charity_evaluations, config
-            )
-        else:
-            # Fallback to basic version if data not provided
-            comprehensive_html = create_comprehensive_html_report(
-                category_totals, yearly_amounts, yearly_counts,
-                consistent_donors, top_charities, total_amount, df or pd.DataFrame(),
-                one_time or pd.DataFrame(), stopped_recurring or pd.DataFrame(),
-                charity_evaluations=charity_evaluations, config=config
-            )
-
-        with open("../output/comprehensive_report.html", "w") as f:
-            f.write(comprehensive_html)
+        # Note: comprehensive_report.html is now generated in main.py
+        # to properly include all sections including recurring donations
 
         return {
             "categories": "gt_categories.html",
             "yearly": "gt_yearly.html",
             "consistent": "gt_consistent_donors.html",
-            "top_charities": "gt_top_charities.html",
-            "comprehensive": "comprehensive_report.html"
+            "top_charities": "gt_top_charities.html"
         }
     except Exception as e:
         print(f"Warning: Could not save Great Tables HTML files: {e}")

@@ -34,7 +34,8 @@ def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_cou
 
 
 def add_table_sections_to_report(html_content, gt_consistent, gt_categories,
-                                gt_yearly, gt_top_charities, consistent_total, config=None):
+                                gt_yearly, gt_top_charities, consistent_total,
+                                recurring_donations=None, config=None):
     """Add main data table sections to the report"""
     html_content += generate_table_sections(
         gt_consistent.as_raw_html(),
@@ -42,6 +43,7 @@ def add_table_sections_to_report(html_content, gt_consistent, gt_categories,
         gt_yearly.as_raw_html(),
         gt_top_charities.as_raw_html(),
         consistent_total,
+        recurring_donations,
         config
     )
     return html_content

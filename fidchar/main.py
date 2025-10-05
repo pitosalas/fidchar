@@ -10,13 +10,25 @@ import yaml
 from core.data_processing import read_donation_data
 from core.analysis import (
     analyze_by_category, analyze_by_year, analyze_donation_patterns,
-    get_top_charities_basic, get_charity_details, analyze_consistent_donors
+    get_top_charities_basic, get_charity_details, analyze_consistent_donors,
+    analyze_recurring_donations
 )
-from core.visualization import create_yearly_histograms, create_charity_yearly_graphs
+from core.visualization import (
+    create_yearly_histograms, create_charity_yearly_graphs,
+    create_efficiency_frontier
+)
 from reports.reporting import generate_console_report, get_charity_descriptions
-from reports.report_builder import generate_markdown_report
-from reports.text_report_builder import generate_text_report
+from reports.markdown_report_builder import MarkdownReportBuilder
+from reports.text_report_builder import TextReportBuilder
 from reports.charity_evaluator import get_charity_evaluations
+from reports.comprehensive_report import (
+    create_comprehensive_html_report, add_table_sections_to_report,
+    add_detailed_charity_analysis
+)
+from tables.great_tables_builder import (
+    create_gt_category_table, create_gt_yearly_table,
+    create_gt_consistent_donors_table, create_gt_top_charities_table
+)
 
 
 def analyze_top_charities(df, top_n=10, app_id=None, app_key=None):
@@ -86,8 +98,15 @@ def main():
         # Analyze donation patterns
         one_time, stopped_recurring = analyze_donation_patterns(df)
 
-        # Analyze consistent donors over last 5 years
-        consistent_donors = analyze_consistent_donors(df)
+        # Analyze consistent donors with configured parameters
+        consistent_config = next((s.get("options", {}) for s in config.get("sections", [])
+                                 if isinstance(s, dict) and s.get("name") == "consistent"), {})
+        min_years = consistent_config.get("min_years", 5)
+        min_amount = consistent_config.get("min_amount", 500)
+        consistent_donors = analyze_consistent_donors(df, min_years, min_amount)
+
+        # Analyze recurring donations
+        recurring_donations = analyze_recurring_donations(df)
 
         # Analyze top charities using config
         app_id = config["charity_navigator"]["app_id"]
@@ -100,21 +119,49 @@ def main():
         charapi_config_path = config.get("charapi_config_path")
         charity_evaluations = get_charity_evaluations(top_charities, charapi_config_path)
 
+        # Create analysis visualizations
+        print("Creating analysis visualizations...")
+        efficiency_frontier_graph = create_efficiency_frontier(df, charity_evaluations)
+
         # Generate reports
         print("Generating reports...")
-        if config.get("generate_markdown", False):
-            generate_markdown_report(
-                category_totals, yearly_amounts, yearly_counts, df, one_time, stopped_recurring,
-                top_charities, charity_details, charity_descriptions, graph_info, consistent_donors,
-                charity_evaluations, config
+
+        if generate_html:
+            total_amount = category_totals.sum()
+            html_report = create_comprehensive_html_report(
+                category_totals, yearly_amounts, yearly_counts, consistent_donors,
+                top_charities, total_amount, df, one_time, stopped_recurring,
+                charity_details, charity_descriptions, graph_info
             )
 
-        if config.get("generate_textfile", False):
-            generate_text_report(
-                category_totals, yearly_amounts, yearly_counts, df, one_time, stopped_recurring,
-                top_charities, charity_details, charity_descriptions, graph_info, consistent_donors,
-                charity_evaluations, config
+            gt_categories = create_gt_category_table(category_totals, total_amount)
+            gt_yearly = create_gt_yearly_table(yearly_amounts, yearly_counts)
+            gt_consistent = create_gt_consistent_donors_table(consistent_donors)
+            gt_top_charities = create_gt_top_charities_table(top_charities)
+
+            consistent_total = sum(donor['total_5_year'] for donor in consistent_donors.values())
+            html_report = add_table_sections_to_report(
+                html_report, gt_consistent, gt_categories,
+                gt_yearly, gt_top_charities, consistent_total, recurring_donations, config
             )
+
+            html_report = add_detailed_charity_analysis(
+                html_report, top_charities, charity_details, charity_descriptions,
+                graph_info, charity_evaluations
+            )
+
+            with open(f"{output_dir}/comprehensive_report.html", "w") as f:
+                f.write(html_report)
+
+        if config.get("generate_markdown", False):
+            markdown_builder = MarkdownReportBuilder(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
+            markdown_builder.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
+                                            stopped_recurring, top_charities, consistent_donors, recurring_donations)
+
+        if config.get("generate_textfile", False):
+            text_builder = TextReportBuilder(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
+            text_builder.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
+                                        stopped_recurring, top_charities, consistent_donors, recurring_donations)
 
         print("Reports generated:")
         if generate_html:
@@ -124,13 +171,6 @@ def main():
         if config.get("generate_textfile", False):
             print("  - ../output/donation_analysis.txt")
         print("  - Various PNG charts")
-
-        # Generate PDF from HTML (if enabled in config)
-        if generate_html:
-            print("PDF generation available - use 'Print to PDF' from your browser")
-            print(f"Open: {output_dir}/comprehensive_report.html in your browser")
-        else:
-            print("HTML generation disabled in config.yaml")
 
     except FileNotFoundError:
         print("Error: data.csv file not found")
