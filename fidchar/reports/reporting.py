@@ -6,7 +6,7 @@ Handles API calls, report generation, and file output.
 
 import requests
 import time
-from table_builder import (
+from tables.table_builder import (
     create_category_summary_table, create_yearly_analysis_table,
     create_one_time_donations_table, create_stopped_recurring_table,
     create_top_charities_table, create_donation_history_table

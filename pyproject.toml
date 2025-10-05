@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "charapi",
     "great-tables>=0.18.0",
     "matplotlib>=3.10.6",
     "pandas>=2.3.2",
@@ -15,3 +16,6 @@ dependencies = [
     "selenium>=4.35.0",
     "tabulate>=0.9.0",
 ]
+
+[tool.uv.sources]
+charapi = { path = "../charapi", editable = true }

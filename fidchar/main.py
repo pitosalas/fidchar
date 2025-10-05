@@ -7,14 +7,16 @@ Coordinates data processing, analysis, visualization, and reporting.
 import os
 import shutil
 import yaml
-from data_processing import read_donation_data
-from analysis import (
+from core.data_processing import read_donation_data
+from core.analysis import (
     analyze_by_category, analyze_by_year, analyze_donation_patterns,
     get_top_charities_basic, get_charity_details, analyze_consistent_donors
 )
-from visualization import create_yearly_histograms, create_charity_yearly_graphs
-from reporting import generate_console_report, get_charity_descriptions
-from report_builder import generate_markdown_report
+from core.visualization import create_yearly_histograms, create_charity_yearly_graphs
+from reports.reporting import generate_console_report, get_charity_descriptions
+from reports.report_builder import generate_markdown_report
+from reports.text_report_builder import generate_text_report
+from reports.charity_evaluator import get_charity_evaluations
 
 
 def analyze_top_charities(df, top_n=10, app_id=None, app_key=None):
@@ -44,7 +46,9 @@ def load_config():
         print("Warning: config.yaml not found, using defaults")
         return {
             "input_file": "../data.csv",
-            "generate_pdf": False,
+            "generate_html": False,
+            "generate_markdown": False,
+            "generate_textfile": True,
             "sections": [1, 2, 3, 4, 5, 6, 7],
             "output_dir": "../output",
             "charity_navigator": {"app_id": "3069", "app_key": None}
@@ -57,7 +61,7 @@ def main():
         # Load configuration
         config = load_config()
         input_file = config["input_file"]
-        generate_pdf = config["generate_pdf"]
+        generate_html = config.get("generate_html", config.get("generate_pdf", False))
         output_dir = config["output_dir"]
 
         # Clean output directory before generating new reports
@@ -92,26 +96,41 @@ def main():
             df, app_id=app_id, app_key=app_key
         )
 
+        # Get charity evaluations from charapi
+        charapi_config_path = config.get("charapi_config_path")
+        charity_evaluations = get_charity_evaluations(top_charities, charapi_config_path)
+
         # Generate reports
         print("Generating reports...")
-        if config.get("generate_markdown", True):
+        if config.get("generate_markdown", False):
             generate_markdown_report(
                 category_totals, yearly_amounts, yearly_counts, df, one_time, stopped_recurring,
-                top_charities, charity_details, charity_descriptions, graph_info, consistent_donors, config
+                top_charities, charity_details, charity_descriptions, graph_info, consistent_donors,
+                charity_evaluations, config
+            )
+
+        if config.get("generate_textfile", False):
+            generate_text_report(
+                category_totals, yearly_amounts, yearly_counts, df, one_time, stopped_recurring,
+                top_charities, charity_details, charity_descriptions, graph_info, consistent_donors,
+                charity_evaluations, config
             )
 
         print("Reports generated:")
-        print("  - ../output/comprehensive_report.html")
-        if config.get("generate_markdown", True):
+        if generate_html:
+            print("  - ../output/comprehensive_report.html")
+        if config.get("generate_markdown", False):
             print("  - ../output/donation_analysis.md")
-        print("  - Various PNG charts and tables")
+        if config.get("generate_textfile", False):
+            print("  - ../output/donation_analysis.txt")
+        print("  - Various PNG charts")
 
         # Generate PDF from HTML (if enabled in config)
-        if generate_pdf:
-            print("PDF generation disabled - use 'Print to PDF' from your browser")
+        if generate_html:
+            print("PDF generation available - use 'Print to PDF' from your browser")
             print(f"Open: {output_dir}/comprehensive_report.html in your browser")
         else:
-            print("PDF generation disabled in config.yaml")
+            print("HTML generation disabled in config.yaml")
 
     except FileNotFoundError:
         print("Error: data.csv file not found")

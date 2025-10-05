@@ -5,7 +5,7 @@ Creates complete HTML reports with all analysis sections.
 """
 
 import pandas as pd
-from html_report_builder import (
+from reports.html_report_builder import (
     generate_html_header_section, generate_table_sections,
     generate_charity_detail_section, generate_donation_history_table
 )
@@ -48,7 +48,7 @@ def add_table_sections_to_report(html_content, gt_consistent, gt_categories,
 
 
 def add_detailed_charity_analysis(html_content, top_charities, charity_details,
-                                 charity_descriptions, graph_info):
+                                 charity_descriptions, graph_info, charity_evaluations):
     """Add detailed analysis section for top 10 charities"""
     html_content += """
     <div class="report-section">
@@ -60,14 +60,13 @@ def add_detailed_charity_analysis(html_content, top_charities, charity_details,
         org_donations = charity_details[tax_id]
         description = charity_descriptions.get(tax_id, "No description available")
         has_graph = graph_info.get(tax_id) is not None
+        evaluation = charity_evaluations.get(tax_id)
 
         # Add charity detail section
         html_content += generate_charity_detail_section(
-            i, tax_id, org_donations, description, has_graph
+            i, tax_id, org_donations, description, has_graph, evaluation
         )
 
-        # Add donation history table
-        html_content += generate_donation_history_table(org_donations)
         html_content += "\n        </div>"
 
     html_content += """

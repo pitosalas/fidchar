@@ -148,8 +148,8 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
     <div class="report-section">
         <h2 class="section-title">Yearly Analysis</h2>
         <div style="text-align: center; margin: 20px 0;">
-            <img src="yearly_amounts.png" alt="Yearly Donation Amounts" style="max-width: 100%; height: auto; margin: 10px;">
-            <img src="yearly_counts.png" alt="Yearly Donation Counts" style="max-width: 100%; height: auto; margin: 10px;">
+            <img src="images/yearly_amounts.png" alt="Yearly Donation Amounts" style="max-width: 100%; height: auto; margin: 10px;">
+            <img src="images/yearly_counts.png" alt="Yearly Donation Counts" style="max-width: 100%; height: auto; margin: 10px;">
         </div>
         {gt_yearly_html}
     </div>"""
@@ -163,11 +163,11 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
     return html_content
 
 
-def generate_charity_detail_section(i, tax_id, org_donations, description, has_graph):
+def generate_charity_detail_section(i, tax_id, org_donations, description, has_graph, evaluation):
     """Generate detailed section for a single charity"""
     org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
     sector = org_donations["Charitable Sector"].iloc[0] if pd.notna(org_donations["Charitable Sector"].iloc[0]) else "N/A"
-    graph_filename = f"charity_{i:02d}_{tax_id.replace('-', '')}.png"
+    graph_filename = f"images/charity_{i:02d}_{tax_id.replace('-', '')}.png"
 
     html_content = f"""
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
@@ -200,6 +200,19 @@ def generate_charity_detail_section(i, tax_id, org_donations, description, has_g
         desc_short = description[:200] + "..." if len(description) > 200 else description
         html_content += f"""
             <p style="font-style: italic; color: #555; margin-bottom: 15px;">{desc_short}</p>"""
+
+    # Charity evaluation if available
+    if evaluation:
+        html_content += f"""
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0;">Charity Evaluation</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <div>⭐ Outstanding: {evaluation.outstanding_count}</div>
+                    <div>✓ Acceptable: {evaluation.acceptable_count}</div>
+                    <div>⚠ Unacceptable: {evaluation.unacceptable_count}</div>
+                </div>
+                <p style="margin-top: 10px; font-style: italic; color: #555;">{evaluation.summary}</p>
+            </div>"""
 
     return html_content
 

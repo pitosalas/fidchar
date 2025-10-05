@@ -169,9 +169,9 @@ def create_gt_top_charities_table(top_charities):
 def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_counts,
                                    consistent_donors, top_charities, total_amount, df,
                                    one_time, stopped_recurring, charity_details=None,
-                                   charity_descriptions=None, graph_info=None, config=None):
+                                   charity_descriptions=None, graph_info=None, charity_evaluations=None, config=None):
     """Create a comprehensive HTML report with all tables"""
-    from comprehensive_report import (
+    from reports.comprehensive_report import (
         create_comprehensive_html_report as create_report,
         add_table_sections_to_report, add_detailed_charity_analysis
     )
@@ -197,7 +197,8 @@ def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_cou
     # Add detailed charity analysis if data is provided
     if charity_details and charity_descriptions and graph_info:
         html_content = add_detailed_charity_analysis(
-            html_content, top_charities, charity_details, charity_descriptions, graph_info
+            html_content, top_charities, charity_details, charity_descriptions, graph_info,
+            charity_evaluations or {}
         )
     else:
         html_content += """
@@ -208,9 +209,9 @@ def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_cou
 
 
 def save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
-                      consistent_donors, top_charities, total_amount, df=None,
+                      consistent_donors, top_charities, total_amount, config, df=None,
                       one_time=None, stopped_recurring=None, charity_details=None,
-                      charity_descriptions=None, graph_info=None):
+                      charity_descriptions=None, graph_info=None, charity_evaluations=None):
     """Generate and save all Great Tables as HTML files"""
 
     # Create all tables
@@ -237,14 +238,15 @@ def save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
                 category_totals, yearly_amounts, yearly_counts,
                 consistent_donors, top_charities, total_amount, df,
                 one_time, stopped_recurring, charity_details,
-                charity_descriptions, graph_info, config
+                charity_descriptions, graph_info, charity_evaluations, config
             )
         else:
             # Fallback to basic version if data not provided
             comprehensive_html = create_comprehensive_html_report(
                 category_totals, yearly_amounts, yearly_counts,
                 consistent_donors, top_charities, total_amount, df or pd.DataFrame(),
-                one_time or pd.DataFrame(), stopped_recurring or pd.DataFrame(), config=config
+                one_time or pd.DataFrame(), stopped_recurring or pd.DataFrame(),
+                charity_evaluations=charity_evaluations, config=config
             )
 
         with open("../output/comprehensive_report.html", "w") as f:

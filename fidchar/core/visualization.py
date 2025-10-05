@@ -4,6 +4,7 @@
 Handles all matplotlib/seaborn chart generation with Tufte-style formatting.
 """
 
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
@@ -17,6 +18,9 @@ plt.rcParams["axes.spines.top"] = False
 
 def create_yearly_histograms(yearly_amounts, yearly_counts):
     """Create Tufte-style minimalist histograms for yearly data"""
+    # Create images directory if it doesn't exist
+    os.makedirs("../output/images", exist_ok=True)
+
     # Create amount histogram
     fig, ax = plt.subplots(figsize=(8, 4))
     bars = ax.bar(yearly_amounts.index, yearly_amounts.values,
@@ -36,7 +40,7 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
     ax.tick_params(left=False, bottom=False)
 
     plt.tight_layout()
-    plt.savefig("../output/yearly_amounts.png", dpi=200, bbox_inches="tight",
+    plt.savefig("../output/images/yearly_amounts.png", dpi=200, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
     plt.close()
 
@@ -54,7 +58,7 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
     ax.tick_params(left=False, bottom=False)
 
     plt.tight_layout()
-    plt.savefig("../output/yearly_counts.png", dpi=200, bbox_inches="tight",
+    plt.savefig("../output/images/yearly_counts.png", dpi=200, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
     plt.close()
 
@@ -134,7 +138,7 @@ def _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_gr
     plt.tight_layout()
 
     # Save very compact thumbnail
-    filename = f"../output/charity_{i:02d}_{tax_id.replace('-', '')}.png"
+    filename = f"../output/images/charity_{i:02d}_{tax_id.replace('-', '')}.png"
     plt.savefig(filename, dpi=100, bbox_inches="tight", pad_inches=0.05,
                 facecolor="white", edgecolor="none")
     plt.close()
