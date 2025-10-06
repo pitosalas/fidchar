@@ -9,3 +9,6 @@ output/
 
 # Virtual environments
 .venv
+
+# macOS files
+.DS_Store
