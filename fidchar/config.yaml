@@ -12,7 +12,7 @@ generate_textfile: false # A simple text file
 # Available sections:
 # - exec: Executive Summary
 # - sectors: Donation Analysis by Charitable Sector
-# - consistent: Consistent Donors Analysis
+# - consistent: Consistent Donations Analysis
 # - yearly: Yearly Donation Analysis
 # - top_charities: Top 10 Charities by Total Donations
 # - patterns: One-Time vs Recurring Donation Patterns
@@ -30,7 +30,7 @@ sections:
     #   show_percentages: true
 
   - name: consistent
-    # Consistent Donors Analysis
+    # Consistent Donations Analysis
     # options:
     min_years: 10
     min_amount: 1000
@@ -49,6 +49,8 @@ sections:
     # Recurring Donations List
     options:
       max_shown: 90
+      sort_by: "total"  # "total" or "annual"
+      min_years: 4  # Minimum years of donations to be considered recurring
 
   - name: patterns
     # One-Time vs Recurring Donation Patterns

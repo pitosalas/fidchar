@@ -105,8 +105,12 @@ def main():
         min_amount = consistent_config.get("min_amount", 500)
         consistent_donors = analyze_consistent_donors(df, min_years, min_amount)
 
-        # Analyze recurring donations
-        recurring_donations = analyze_recurring_donations(df)
+        # Analyze recurring donations with configured parameters
+        recurring_config = next((s.get("options", {}) for s in config.get("sections", [])
+                                if isinstance(s, dict) and s.get("name") == "recurring"), {})
+        sort_by = recurring_config.get("sort_by", "total")
+        min_years_recurring = recurring_config.get("min_years", 4)
+        recurring_donations = analyze_recurring_donations(df, sort_by, min_years_recurring)
 
         # Analyze top charities using config
         app_id = config["charity_navigator"]["app_id"]
@@ -163,14 +167,15 @@ def main():
             text_builder.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                         stopped_recurring, top_charities, consistent_donors, recurring_donations)
 
-        print("Reports generated:")
+        files_generated = []
         if generate_html:
-            print("  - ../output/comprehensive_report.html")
+            files_generated.append("comprehensive_report.html")
         if config.get("generate_markdown", False):
-            print("  - ../output/donation_analysis.md")
+            files_generated.append("donation_analysis.md")
         if config.get("generate_textfile", False):
-            print("  - ../output/donation_analysis.txt")
-        print("  - Various PNG charts")
+            files_generated.append("donation_analysis.txt")
+
+        print(f"Reports generated: {', '.join(files_generated)} in the output directory")
 
     except FileNotFoundError:
         print("Error: data.csv file not found")

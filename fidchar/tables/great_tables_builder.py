@@ -105,7 +105,7 @@ def create_gt_consistent_donors_table(consistent_donors):
     gt_table = (
         GT(df)
         .tab_header(
-            title="Consistent Donors (Last 5 Years)",
+            title="Consistent Donations (Last 5 Years)",
             subtitle="Organizations with $500+ annually for 5 consecutive years"
         )
         .fmt_currency(columns=["5-Year Total", "Average/Year"], currency="USD", decimals=0)
@@ -174,6 +174,8 @@ def create_gt_recurring_donations_table(recurring_donations, max_shown=20):
     df = recurring_donations.head(max_shown).copy()
     df = df.rename(columns={
         'EIN': 'Tax ID',
+        'First_Year': 'First Year',
+        'Years_Supported': 'Years',
         'Amount': 'Annual Amount',
         'Total_Ever_Donated': 'Total Ever Donated',
         'Last_Donation_Date': 'Last Donation'
@@ -183,15 +185,15 @@ def create_gt_recurring_donations_table(recurring_donations, max_shown=20):
     total_ever = recurring_donations['Total_Ever_Donated'].sum()
 
     gt_table = (
-        GT(df[['Tax ID', 'Organization', 'Annual Amount', 'Total Ever Donated', 'Period', 'Last Donation']])
+        GT(df[['Tax ID', 'Organization', 'First Year', 'Years', 'Annual Amount', 'Total Ever Donated', 'Last Donation']])
         .tab_header(
             title="Recurring Donations",
-            subtitle=f"{len(recurring_donations)} organizations with active recurring donations"
+            subtitle=f"{len(recurring_donations)} organizations with recurring donations (4+ years)"
         )
         .fmt_currency(columns=['Annual Amount', 'Total Ever Donated'], currency="USD", decimals=2)
         .fmt_date(columns='Last Donation', date_style='iso')
-        .cols_align(align="center", columns="Tax ID")
-        .cols_align(align="left", columns=["Organization", "Period"])
+        .cols_align(align="center", columns=["Tax ID", "First Year", "Years"])
+        .cols_align(align="left", columns="Organization")
         .cols_align(align="right", columns=['Annual Amount', 'Total Ever Donated'])
         .cols_align(align="center", columns="Last Donation")
         .tab_source_note(

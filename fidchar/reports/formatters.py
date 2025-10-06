@@ -41,9 +41,10 @@ class HTMLFormatter(ReportFormatter):
             <tr style="background: #f8f9fa; border-bottom: 2px solid #333;">
                 <th style="padding: 10px; text-align: left;">EIN</th>
                 <th style="padding: 10px; text-align: left;">Organization</th>
+                <th style="padding: 10px; text-align: center;">First Year</th>
+                <th style="padding: 10px; text-align: center;">Years</th>
                 <th style="padding: 10px; text-align: right;">Amount</th>
                 <th style="padding: 10px; text-align: right;">Total Ever Donated</th>
-                <th style="padding: 10px; text-align: left;">Period</th>
                 <th style="padding: 10px; text-align: left;">Last Donation</th>
             </tr>
         </thead>
@@ -55,9 +56,10 @@ class HTMLFormatter(ReportFormatter):
             <tr style="background: {bg_color}; border-bottom: 1px solid #ddd;">
                 <td style="padding: 8px;">{row['ein']}</td>
                 <td style="padding: 8px;">{row['organization']}</td>
+                <td style="padding: 8px; text-align: center;">{row['first_year']}</td>
+                <td style="padding: 8px; text-align: center;">{row['years']}</td>
                 <td style="padding: 8px; text-align: right;">${row['amount']:,.2f}</td>
                 <td style="padding: 8px; text-align: right;">${row['total_ever']:,.2f}</td>
-                <td style="padding: 8px;">{row['period']}</td>
                 <td style="padding: 8px;">{row['last_date'].strftime('%Y-%m-%d')}</td>
             </tr>"""
 
@@ -133,13 +135,13 @@ class MarkdownFormatter(ReportFormatter):
             return "\n## Recurring Donations\n\nNo recurring donations found.\n"
 
         section = f"\n## Recurring Donations\n\n"
-        section += f"Organizations with recurring donation schedules ({data['org_count']} organizations):\n\n"
+        section += f"Organizations with recurring donations (4+ years) ({data['org_count']} organizations):\n\n"
 
-        section += "| EIN | Organization | Amount | Total Ever Donated | Period | Last Donation |\n"
-        section += "|:----|:-------------|-------:|------------------:|:-------|:-------------|\n"
+        section += "| EIN | Organization | First Year | Years | Amount | Total Ever Donated | Last Donation |\n"
+        section += "|:----|:-------------|:----------:|:-----:|-------:|------------------:|:-------------|\n"
 
         for row in data['rows']:
-            section += f"| {row['ein']} | {row['organization']} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['period']} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
+            section += f"| {row['ein']} | {row['organization']} | {row['first_year']} | {row['years']} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
 
         if data['overflow_count'] > 0:
             section += f"\n*... and {data['overflow_count']} more organizations*\n"
@@ -202,14 +204,15 @@ Organizations with recurring donation schedules ({data['org_count']} organizatio
             table_data.append([
                 row['ein'],
                 row['organization'][:40],
+                row['first_year'],
+                row['years'],
                 f"${row['amount']:,.2f}",
                 f"${row['total_ever']:,.2f}",
-                row['period'][:30],
                 row['last_date'].strftime('%Y-%m-%d')
             ])
 
         section += tabulate(table_data,
-                           headers=['EIN', 'Organization', 'Amount', 'Total Ever', 'Period', 'Last Donation'],
+                           headers=['EIN', 'Organization', 'First Year', 'Years', 'Amount', 'Total Ever', 'Last Donation'],
                            tablefmt='simple')
         section += "\n"
 

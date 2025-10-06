@@ -85,9 +85,10 @@ class BaseReportBuilder:
             rows.append({
                 'ein': row['EIN'],
                 'organization': row['Organization'],
+                'first_year': row['First_Year'],
+                'years': row['Years_Supported'],
                 'amount': row['Amount'],
                 'total_ever': row['Total_Ever_Donated'],
-                'period': row['Period'],
                 'last_date': row['Last_Donation_Date']
             })
 

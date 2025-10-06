@@ -118,25 +118,46 @@ def analyze_consistent_donors(df, min_years=5, min_amount=500):
     return consistent_donors
 
 
-def analyze_recurring_donations(df):
-    """Extract active recurring donation information (donations in 2024 or 2025)"""
-    recurring_df = df[df["Recurring"].notna() & (df["Recurring"].str.strip() != "")].copy()
+def analyze_recurring_donations(df, sort_by="total", min_years=4):
+    """Extract recurring donations based on number of years supported
 
-    if recurring_df.empty:
+    Args:
+        df: DataFrame with donation data
+        sort_by: Sort order - "total" for total donated, "annual" for annual amount (default: "total")
+        min_years: Minimum number of years receiving donations to be considered recurring (default: 4)
+    """
+    current_year = datetime.now().year
+
+    result_data = []
+    for tax_id in df['Tax ID'].dropna().unique():
+        charity_data = df[df['Tax ID'] == tax_id]
+
+        years_donated = charity_data['Year'].unique()
+        num_years = len(years_donated)
+
+        if num_years >= min_years:
+            first_year = int(charity_data['Year'].min())
+            last_donation = charity_data['Submit Date'].max()
+            total_donated = charity_data['Amount_Numeric'].sum()
+            avg_annual = total_donated / num_years
+            org_name = charity_data['Organization'].iloc[0]
+
+            result_data.append({
+                'EIN': tax_id,
+                'Organization': org_name,
+                'First_Year': first_year,
+                'Years_Supported': num_years,
+                'Amount': avg_annual,
+                'Total_Ever_Donated': total_donated,
+                'Last_Donation_Date': last_donation
+            })
+
+    if not result_data:
         return pd.DataFrame()
 
-    result = recurring_df.groupby("Tax ID").agg({
-        "Organization": "first",
-        "Amount_Numeric": ["mean", "sum"],
-        "Recurring": "first",
-        "Submit Date": "max"
-    }).reset_index()
+    result = pd.DataFrame(result_data)
 
-    result.columns = ["EIN", "Organization", "Amount", "Total_Ever_Donated", "Period", "Last_Donation_Date"]
-
-    current_year = datetime.now().year
-    result = result[result["Last_Donation_Date"].dt.year >= current_year - 1]
-
-    result = result.sort_values("Amount", ascending=False)
+    sort_column = "Total_Ever_Donated" if sort_by == "total" else "Amount"
+    result = result.sort_values(sort_column, ascending=False)
 
     return result

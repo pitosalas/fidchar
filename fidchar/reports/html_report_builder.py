@@ -104,7 +104,7 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
                 <p>Total: ${stopped_total:,.2f}</p>
             </div>
             <div class="summary-box">
-                <h3>Consistent Donors (5yr)</h3>
+                <h3>Consistent Donations (5yr)</h3>
                 <p><strong>{consistent_count} organizations</strong></p>
                 <p>Total: ${consistent_total:,.2f}</p>
             </div>
@@ -172,10 +172,10 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
         elif section_id == "consistent":
             html_content += f"""
     <div class="report-section">
-        <h2 class="section-title">Consistent Donors (Last 5 Years, $500+ Annually)</h2>
+        <h2 class="section-title">Consistent Donations (Last 5 Years, $500+ Annually)</h2>
         <p>Charities that received donations consistently for the last 5 years with at least $500 per year:</p>
         {gt_consistent_html}
-        <p style="margin-top: 15px;"><strong>Total to consistent donors (5 years):</strong> ${consistent_total:,.2f}</p>
+        <p style="margin-top: 15px;"><strong>Total to consistent donations (5 years):</strong> ${consistent_total:,.2f}</p>
     </div>"""
         elif section_id == "yearly":
             html_content += f"""
@@ -198,6 +198,30 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
                 max_shown = section_options.get("max_shown", 20)
                 builder = HTMLReportBuilder(pd.DataFrame(), config or {}, {}, {}, {}, {})
                 html_content += builder.generate_recurring_donations_section(recurring_donations, max_shown)
+        elif section_id == "analysis":
+            html_content += """
+    <div class="report-section">
+        <h2 class="section-title">Strategic Analysis</h2>
+        <p>Insights to help you optimize your charitable giving strategy.</p>
+
+        <h3>Efficiency Frontier Analysis</h3>
+        <img src="images/efficiency_frontier.png" alt="Efficiency Frontier" style="max-width: 100%; height: auto; margin: 20px 0;">
+
+        <h4>How to read this chart:</h4>
+        <ul>
+            <li><strong>X-axis (Evaluation Score):</strong> Outstanding×2 + Acceptable - Unacceptable (can be negative)</li>
+            <li><strong>Y-axis (Total Donated):</strong> How much you've given to them</li>
+            <li>Higher scores (right side) indicate better-performing charities</li>
+            <li>Reference lines at 0 and 5 show score thresholds</li>
+        </ul>
+
+        <h4>Key Insights:</h4>
+        <ul>
+            <li><strong>Ideal:</strong> Most of your giving should be to charities with higher scores (≥5)</li>
+            <li><strong>Consider:</strong> Are you giving large amounts to lower-rated charities (score <0)?</li>
+            <li><strong>Opportunity:</strong> Are there highly-rated charities you could support more?</li>
+        </ul>
+    </div>"""
 
     return html_content
 

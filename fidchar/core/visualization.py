@@ -170,11 +170,9 @@ def create_efficiency_frontier(df, charity_evaluations):
         eval_result = charity_evaluations.get(tax_id)
 
         if eval_result and hasattr(eval_result, 'outstanding_count'):
-            total_metrics = eval_result.outstanding_count + eval_result.acceptable_count + eval_result.unacceptable_count
-            if total_metrics > 0:
-                score = (eval_result.outstanding_count * 100 + eval_result.acceptable_count * 50) / total_metrics
-                eval_scores.append(score)
-                valid_charities.append(row)
+            score = eval_result.outstanding_count * 2 + eval_result.acceptable_count - eval_result.unacceptable_count
+            eval_scores.append(score)
+            valid_charities.append(row)
 
     if not valid_charities:
         return None
@@ -184,41 +182,31 @@ def create_efficiency_frontier(df, charity_evaluations):
 
     fig, ax = plt.subplots(figsize=(12, 8))
 
-    colors_map = {
-        (80, 100): "#2ecc71",
-        (50, 80): "#f39c12",
-        (0, 50): "#e74c3c"
-    }
+    min_score = eval_df["Score"].min()
+    max_score = eval_df["Score"].max()
 
-    for (min_score, max_score), color in colors_map.items():
-        mask = (eval_df["Score"] >= min_score) & (eval_df["Score"] < max_score)
-        subset = eval_df[mask]
-        if not subset.empty:
-            ax.scatter(subset["Score"], subset["Total_Donated"],
-                      s=200, c=color, alpha=0.6, edgecolors="black", linewidth=0.5,
-                      label=f"{min_score}-{max_score}%")
+    ax.scatter(eval_df["Score"], eval_df["Total_Donated"],
+              s=200, c="#4a90e2", alpha=0.7, edgecolors="black", linewidth=0.5)
 
-    ax.set_xlabel("Evaluation Score (%)", fontsize=11)
+    ax.set_xlabel("Evaluation Score (Outstanding*2 + Acceptable - Unacceptable)", fontsize=11)
     ax.set_ylabel("Total Donated ($)", fontsize=11)
     ax.set_title("Efficiency Frontier: Are You Maximizing Impact?", fontsize=13, pad=15)
 
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f"${x/1000:,.0f}K" if x >= 1000 else f"${x:,.0f}"))
 
-    ax.axvline(x=80, color="gray", linestyle="--", alpha=0.3, linewidth=1)
-    ax.text(82, ax.get_ylim()[1] * 0.95, "Excellent", fontsize=9, alpha=0.5)
+    ax.axvline(x=0, color="gray", linestyle="--", alpha=0.3, linewidth=1)
+    ax.axvline(x=5, color="gray", linestyle="--", alpha=0.3, linewidth=1)
 
     for idx, row in eval_df.iterrows():
-        if row["Total_Donated"] > eval_df["Total_Donated"].quantile(0.7):
-            ax.annotate(
-                row["Organization"][:20],
-                (row["Score"], row["Total_Donated"]),
-                fontsize=7,
-                alpha=0.7,
-                xytext=(5, 5),
-                textcoords="offset points"
-            )
+        ax.annotate(
+            row["Organization"][:25],
+            (row["Score"], row["Total_Donated"]),
+            fontsize=8,
+            alpha=0.8,
+            xytext=(5, 5),
+            textcoords="offset points"
+        )
 
-    ax.legend(title="Evaluation Score", fontsize=9)
     sns.despine(left=False, bottom=False)
     plt.tight_layout()
     plt.savefig("../output/images/efficiency_frontier.png", dpi=200,

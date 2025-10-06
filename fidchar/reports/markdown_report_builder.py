@@ -120,17 +120,17 @@ class MarkdownReportBuilder(BaseReportBuilder):
         return section
 
     def generate_consistent_donors_section(self, consistent_donors, html_files):
-        """Generate the consistent donors section"""
+        """Generate the consistent donations section"""
         if not consistent_donors:
-            section = f"\n## Consistent Donors (Last 5 Years, $500+ Annually)\n\n"
+            section = f"\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
             section += "No charities meet the criteria for consistent donations over the last 5 years.\n"
             return section
 
-        section = f"\n## Consistent Donors (Last 5 Years, $500+ Annually)\n\n"
+        section = f"\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
         section += f"Charities that received donations consistently for the last 5 years with at least $500 per year ({len(consistent_donors)} organizations):\n\n"
 
         if html_files:
-            section += f"[View Consistent Donors Table]({html_files['consistent']})\n\n"
+            section += f"[View Consistent Donations Table]({html_files['consistent']})\n\n"
         else:
             consistent_table = create_consistent_donors_table(consistent_donors)
             section += f"{consistent_table}\n\n"
@@ -164,15 +164,14 @@ This section provides insights to help you optimize your charitable giving strat
 ![Efficiency Frontier](images/efficiency_frontier.png)
 
 **How to read this chart:**
-- **X-axis (Evaluation Score)**: How well the charity performs (based on charapi metrics)
+- **X-axis (Evaluation Score)**: Outstanding×2 + Acceptable - Unacceptable (can be negative)
 - **Y-axis (Total Donated)**: How much you've given to them
-- **Green dots**: Highly-rated charities (80-100%)
-- **Yellow dots**: Medium-rated charities (50-80%)
-- **Red dots**: Lower-rated charities (0-50%)
+- Higher scores (right side) indicate better-performing charities
+- Reference lines at 0 and 5 show score thresholds
 
 **Key Insights:**
-- **Ideal**: Most of your giving should be to green dots (highly-rated charities)
-- **Consider**: Are you giving large amounts to lower-rated charities?
+- **Ideal**: Most of your giving should be to charities with higher scores (≥5)
+- **Consider**: Are you giving large amounts to lower-rated charities (score <0)?
 - **Opportunity**: Are there highly-rated charities you could support more?
 
 """
@@ -233,6 +232,3 @@ This section provides insights to help you optimize your charitable giving strat
 
         with open("../output/donation_analysis.md", "w") as f:
             f.write(report)
-
-        if html_files:
-            print(f"HTML tables generated: {list(html_files.values())}")
