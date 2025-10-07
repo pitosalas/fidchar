@@ -119,7 +119,25 @@ class HTMLFormatter(ReportFormatter):
         <p><strong>Charity Evaluation:</strong><br>
         ⭐ Outstanding: {data['evaluation'].outstanding_count} metrics<br>
         ✓ Acceptable: {data['evaluation'].acceptable_count} metrics<br>
-        ⚠ Unacceptable: {data['evaluation'].unacceptable_count} metrics</p>
+        ⚠ Unacceptable: {data['evaluation'].unacceptable_count} metrics</p>"""
+
+            score = data['evaluation'].alignment_score
+            if score >= 90:
+                alignment_label = "⭐ Excellent alignment"
+            elif score >= 70:
+                alignment_label = "✓ Good alignment"
+            elif score >= 50:
+                alignment_label = "~ Moderate alignment"
+            elif score >= 30:
+                alignment_label = "⚠ Limited alignment"
+            elif score > 0:
+                alignment_label = "✗ Poor alignment"
+            else:
+                alignment_label = "No alignment data"
+
+            section += f"""
+        <p><strong>Alignment with Your Goals: {data['evaluation'].alignment_score}/100</strong><br>
+        {alignment_label}</p>
         <p><em>{data['evaluation'].summary}</em></p>"""
 
         section += "</div>"
@@ -173,6 +191,22 @@ class MarkdownFormatter(ReportFormatter):
             section += f"- ⭐ Outstanding: {data['evaluation'].outstanding_count} metrics\n"
             section += f"- ✓ Acceptable: {data['evaluation'].acceptable_count} metrics\n"
             section += f"- ⚠ Unacceptable: {data['evaluation'].unacceptable_count} metrics\n\n"
+
+            score = data['evaluation'].alignment_score
+            if score >= 90:
+                alignment_label = "⭐ Excellent alignment"
+            elif score >= 70:
+                alignment_label = "✓ Good alignment"
+            elif score >= 50:
+                alignment_label = "~ Moderate alignment"
+            elif score >= 30:
+                alignment_label = "⚠ Limited alignment"
+            elif score > 0:
+                alignment_label = "✗ Poor alignment"
+            else:
+                alignment_label = "No alignment data"
+
+            section += f"**Alignment with Your Goals: {data['evaluation'].alignment_score}/100** - {alignment_label}\n\n"
             section += f"*{data['evaluation'].summary}*\n\n"
 
         return section
@@ -248,6 +282,22 @@ Number of Donations: {data['donation_count']}
             section += f"  Outstanding:    {data['evaluation'].outstanding_count} metrics\n"
             section += f"  Acceptable:     {data['evaluation'].acceptable_count} metrics\n"
             section += f"  Unacceptable:   {data['evaluation'].unacceptable_count} metrics\n"
+
+            score = data['evaluation'].alignment_score
+            if score >= 90:
+                alignment_label = "⭐ Excellent alignment"
+            elif score >= 70:
+                alignment_label = "✓ Good alignment"
+            elif score >= 50:
+                alignment_label = "~ Moderate alignment"
+            elif score >= 30:
+                alignment_label = "⚠ Limited alignment"
+            elif score > 0:
+                alignment_label = "✗ Poor alignment"
+            else:
+                alignment_label = "No alignment data"
+
+            section += f"\nAlignment with Your Goals: {data['evaluation'].alignment_score}/100 ({alignment_label})\n"
             section += f"\n{data['evaluation'].summary}\n\n"
 
         return section
