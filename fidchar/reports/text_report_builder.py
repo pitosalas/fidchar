@@ -4,12 +4,11 @@
 Generates plain text reports with ASCII table formatting.
 """
 
-import pandas as pd
 from datetime import datetime
 from tables.table_builder import (
     create_category_summary_table, create_yearly_analysis_table,
     create_one_time_donations_table, create_stopped_recurring_table,
-    create_top_charities_table, create_donation_history_table,
+    create_top_charities_table,
     create_consistent_donors_table
 )
 from reports.base_report_builder import BaseReportBuilder
@@ -149,6 +148,29 @@ $500 per year ({len(consistent_donors)} organizations):
         data = self.prepare_charity_detail_data(i, tax_id)
         return self.formatter.format_charity_detail_section(data)
 
+        def generate_analysis_section(self):
+                """Generate strategic analysis (efficiency frontier) section in text format"""
+                section = f"""STRATEGIC ANALYSIS
+{'-' * 80}
+
+EFFICIENCY FRONTIER ANALYSIS
+
+Chart: images/efficiency_frontier.png
+
+How to read this chart:
+    - X-axis (Evaluation Score): Outstanding×2 + Acceptable - Unacceptable (can be negative)
+    - Y-axis (Total Donated): Amount donated to the charity
+    - Higher scores (right) indicate better-performing charities
+    - Reference lines at 0 and 5 show score thresholds
+
+Key Insights:
+    - Ideal: Most giving should be to higher-score charities (≥5)
+    - Consider: Large giving to negative-score charities
+    - Opportunity: High-score charities with low total received
+
+"""
+                return section
+
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
                        stopped_recurring, top_charities, consistent_donors, recurring_donations):
         """Generate complete text report by combining all sections"""
@@ -188,6 +210,10 @@ $500 per year ({len(consistent_donors)} organizations):
 
         for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
             report += self.generate_charity_detail_section(i, tax_id)
+
+        # Add analysis section if configured
+        if any((s.get("name") if isinstance(s, dict) else s) == "analysis" for s in sections):
+            report += self.generate_analysis_section()
 
         with open("../output/donation_analysis.txt", "w") as f:
             f.write(report)
