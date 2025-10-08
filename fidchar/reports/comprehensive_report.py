@@ -1,21 +1,13 @@
 #!/usr/bin/env python3
-"""Comprehensive HTML report generator.
-
-Creates complete HTML reports with all analysis sections.
 """
-
-import pandas as pd
-from reports.html_report_builder import (
-    generate_html_header_section, generate_table_sections,
-    generate_charity_detail_section, generate_donation_history_table
-)
-
+    Creates complete HTML reports with all analysis sections.
+"""
+import reports.html_report_builder as rhtml
 
 def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_counts,
                                    consistent_donors, top_charities, total_amount, df,
                                    one_time, stopped_recurring, charity_details=None,
                                    charity_descriptions=None, graph_info=None):
-    """Create a comprehensive HTML report with all tables and analysis"""
 
     # Calculate summary stats
     total_donations = len(df)
@@ -25,7 +17,7 @@ def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_cou
     consistent_total = sum(donor['total_5_year'] for donor in consistent_donors.values())
 
     # Generate HTML content sections
-    html_content = generate_html_header_section(
+    html_content = rhtml.generate_html_header_section(
         total_donations, total_amount, years_covered,
         one_time_total, stopped_total, consistent_total, len(consistent_donors)
     )
@@ -35,9 +27,9 @@ def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_cou
 
 def add_table_sections_to_report(html_content, gt_consistent, gt_categories,
                                 gt_yearly, gt_top_charities, consistent_total,
-                                recurring_donations=None, config=None):
-    """Add main data table sections to the report"""
-    html_content += generate_table_sections(
+                                recurring_donations, config):
+
+    html_content += rhtml.generate_table_sections(
         gt_consistent.as_raw_html(),
         gt_categories.as_raw_html(),
         gt_yearly.as_raw_html(),
@@ -65,7 +57,7 @@ def add_detailed_charity_analysis(html_content, top_charities, charity_details,
         evaluation = charity_evaluations.get(tax_id)
 
         # Add charity detail section
-        html_content += generate_charity_detail_section(
+        html_content += rhtml.generate_charity_detail_section(
             i, tax_id, org_donations, description, has_graph, evaluation
         )
 

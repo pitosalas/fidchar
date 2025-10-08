@@ -149,15 +149,8 @@ class HTMLReportBuilder(BaseReportBuilder):
 
 def generate_table_sections(gt_consistent_html, gt_categories_html,
                            gt_yearly_html, gt_top_charities_html, consistent_total,
-                           recurring_donations=None, config=None):
-    """Generate the main table sections in config-specified order"""
-
-    # Get section order from config, default to standard order if not provided
-    default_sections = [
-        {"name": "sectors"}, {"name": "consistent"}, {"name": "yearly"}, {"name": "top_charities"}
-    ]
-    sections = config.get("sections", default_sections) if config else default_sections
-
+                           recurring_donations, config: dict):
+    sections = config.get("sections", {})
     html_content = ""
 
     for section in sections:

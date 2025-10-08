@@ -21,6 +21,6 @@ def get_charity_evaluations(top_charities, charapi_config_path):
             evaluations[tax_id] = result
             time.sleep(0.1)
         except Exception as e:
-            evaluations[tax_id] = None
+            evaluations[tax_id] = e
 
     return evaluations

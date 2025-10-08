@@ -118,7 +118,7 @@ def analyze_consistent_donors(df, min_years=5, min_amount=500):
     return consistent_donors
 
 
-def analyze_recurring_donations(df, sort_by="total", min_years=4, stale_years=2):
+def analyze_recurring_donations(df, sort_by, min_years, stale_years):
     """Analyze recurring donations with richer logic.
 
     Features:

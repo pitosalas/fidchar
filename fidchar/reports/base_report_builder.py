@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """Base report builder with common business logic.
-
 This module contains shared logic for extracting and processing data,
 independent of output format (HTML, Markdown, Text).
 """
-
 import pandas as pd
-
 
 class BaseReportBuilder:
     """Base class for report builders with shared state and common logic"""
@@ -60,15 +57,6 @@ class BaseReportBuilder:
             'total_ever': recurring_donations['Total_Ever_Donated'].sum()
         }
 
-    def get_section_order(self):
-        """Get section order from config - single implementation"""
-        default_sections = [
-            {"name": "exec"}, {"name": "sectors"}, {"name": "consistent"},
-            {"name": "yearly"}, {"name": "top_charities"}, {"name": "patterns"},
-            {"name": "recurring"}, {"name": "detailed"}
-        ]
-        return self.config.get("sections", default_sections) if self.config else default_sections
-
     def parse_section_config(self, section):
         """Parse section configuration - single implementation"""
         section_id = section if isinstance(section, str) else section.get("name")
@@ -119,5 +107,55 @@ class BaseReportBuilder:
             'description': description,
             'graph_filename': graph_filename,
             'has_graph': has_graph,
-            'evaluation': evaluation
+            'evaluation': evaluation,
+            'focus_charity': getattr(evaluation, 'focus_charity', False) if evaluation else False
         }
+
+    # Focus charities helpers
+    def get_focus_charities(self):
+        """Return dict of EIN -> evaluation objects flagged as focus charities"""
+        if not self.charity_evaluations:
+            return {}
+        return {ein: ev for ein, ev in self.charity_evaluations.items() if getattr(ev, 'focus_charity', False)}
+
+    def focus_charity_stats(self):
+        """Compute count and total donated for focus charities using charity_details."""
+        focus = self.get_focus_charities()
+        total = 0.0
+        for ein in focus.keys():
+            if ein in self.charity_details:
+                org_df = self.charity_details[ein]
+                if not org_df.empty and 'Amount_Numeric' in org_df.columns:
+                    total += org_df['Amount_Numeric'].sum()
+        return len(focus), total
+
+    def build_focus_rows(self):
+        """Construct rows for focus charities section."""
+        focus = self.get_focus_charities()
+        rows = []
+        for ein, evaluation in focus.items():
+            org_df = self.charity_details.get(ein)
+            if org_df is not None and not org_df.empty:
+                years = sorted(org_df['Year'].unique()) if 'Year' in org_df.columns else []
+                first_year = years[0] if years else None
+                last_year = years[-1] if years else None
+                period = f"{first_year}-{last_year}" if first_year and last_year else "—"
+                sector_val = org_df['Charitable Sector'].iloc[0] if 'Charitable Sector' in org_df.columns and not org_df.empty else 'N/A'
+                total_donated = org_df['Amount_Numeric'].sum() if 'Amount_Numeric' in org_df.columns else 0.0
+            else:
+                period = "—"
+                sector_val = 'N/A'
+                total_donated = 0.0
+                years = []
+            rows.append({
+                'ein': ein,
+                'organization': getattr(evaluation, 'organization_name', 'Unknown'),
+                'sector': sector_val,
+                'years_supported': len(years),
+                'period': period,
+                'total_donated': total_donated,
+                'alignment_score': getattr(evaluation, 'alignment_score', None),
+            })
+        # sort by total donated desc
+        rows.sort(key=lambda r: r['total_donated'], reverse=True)
+        return rows

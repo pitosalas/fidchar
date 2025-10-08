@@ -5,22 +5,15 @@ Generates plain text reports with ASCII table formatting.
 """
 
 from datetime import datetime
-from tables.table_builder import (
-    create_category_summary_table, create_yearly_analysis_table,
-    create_one_time_donations_table, create_stopped_recurring_table,
-    create_top_charities_table,
-    create_consistent_donors_table
-)
+import tables.table_builder as tab
+import reports.formatters as fmt
 from reports.base_report_builder import BaseReportBuilder
-from reports.formatters import TextFormatter
-
 
 class TextReportBuilder(BaseReportBuilder):
-    """Text report builder with inherited state"""
 
     def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations):
         super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
-        self.formatter = TextFormatter()
+        self.formatter = fmt.TextFormatter()
 
     def generate_report_header(self, total_amount, total_donations):
         """Generate the text report header section"""
@@ -43,7 +36,7 @@ Years Covered:    {self.df['Year'].min()} - {self.df['Year'].max()}
         section = f"""DONATIONS BY CHARITABLE SECTOR
 {'-' * 80}
 
-{create_category_summary_table(category_totals, total_amount)}
+{tab.create_category_summary_table(category_totals, total_amount)}
 
 Total: ${total_amount:,.2f}
 
@@ -57,14 +50,14 @@ Total: ${total_amount:,.2f}
 
 Note: Charts available in images/yearly_amounts.png and images/yearly_counts.png
 
-{create_yearly_analysis_table(yearly_amounts, yearly_counts)}
+{tab.create_yearly_analysis_table(yearly_amounts, yearly_counts)}
 
 """
         return section
 
     def generate_one_time_section(self, one_time):
         """Generate the one-time donations section with inline table"""
-        one_time_table = create_one_time_donations_table(one_time)
+        one_time_table = tab.create_one_time_donations_table(one_time)
         one_time_total = one_time["Total_Amount"].sum()
 
         section = f"""ONE-TIME DONATIONS
@@ -84,7 +77,7 @@ Organizations that received a single donation ({len(one_time)} organizations):
 
     def generate_stopped_recurring_section(self, stopped_recurring):
         """Generate the stopped recurring donations section with inline table"""
-        stopped_table = create_stopped_recurring_table(stopped_recurring)
+        stopped_table = tab.create_stopped_recurring_table(stopped_recurring)
         stopped_total = stopped_recurring["Total_Amount"].sum()
 
         section = f"""STOPPED RECURRING DONATIONS
@@ -107,7 +100,7 @@ Organizations with recurring donations that appear to have stopped ({len(stopped
         section = f"""TOP 10 CHARITIES BY TOTAL DONATIONS
 {'-' * 80}
 
-{create_top_charities_table(top_charities)}
+{tab.create_top_charities_table(top_charities)}
 
 """
         return section
@@ -129,7 +122,7 @@ No charities meet the criteria for consistent donations over the last 5 years.
 Charities that received donations consistently for the last 5 years with at least
 $500 per year ({len(consistent_donors)} organizations):
 
-{create_consistent_donors_table(consistent_donors)}
+{tab.create_consistent_donors_table(consistent_donors)}
 
 """
 
@@ -148,29 +141,6 @@ $500 per year ({len(consistent_donors)} organizations):
         data = self.prepare_charity_detail_data(i, tax_id)
         return self.formatter.format_charity_detail_section(data)
 
-        def generate_analysis_section(self):
-                """Generate strategic analysis (efficiency frontier) section in text format"""
-                section = f"""STRATEGIC ANALYSIS
-{'-' * 80}
-
-EFFICIENCY FRONTIER ANALYSIS
-
-Chart: images/efficiency_frontier.png
-
-How to read this chart:
-    - X-axis (Evaluation Score): Outstanding×2 + Acceptable - Unacceptable (can be negative)
-    - Y-axis (Total Donated): Amount donated to the charity
-    - Higher scores (right) indicate better-performing charities
-    - Reference lines at 0 and 5 show score thresholds
-
-Key Insights:
-    - Ideal: Most giving should be to higher-score charities (≥5)
-    - Consider: Large giving to negative-score charities
-    - Opportunity: High-score charities with low total received
-
-"""
-                return section
-
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
                        stopped_recurring, top_charities, consistent_donors, recurring_donations):
         """Generate complete text report by combining all sections"""
@@ -178,10 +148,7 @@ Key Insights:
         total_donations = len(self.df)
 
         report = self.generate_report_header(total_amount, total_donations)
-
-        sections = self.get_section_order()
-
-        for section in sections:
+        for section in self.config.get("sections", {}) :
             section_id, section_options = self.parse_section_config(section)
 
             if section_id == "exec":
@@ -210,10 +177,6 @@ Key Insights:
 
         for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
             report += self.generate_charity_detail_section(i, tax_id)
-
-        # Add analysis section if configured
-        if any((s.get("name") if isinstance(s, dict) else s) == "analysis" for s in sections):
-            report += self.generate_analysis_section()
 
         with open("../output/donation_analysis.txt", "w") as f:
             f.write(report)

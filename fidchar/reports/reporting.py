@@ -6,12 +6,6 @@ Handles API calls, report generation, and file output.
 
 import requests
 import time
-from tables.table_builder import (
-    create_category_summary_table, create_yearly_analysis_table,
-    create_one_time_donations_table, create_stopped_recurring_table,
-    create_top_charities_table, create_donation_history_table
-)
-
 
 def get_charity_description(tax_id, app_id=None, app_key=None):
     """Fetch charity description from Charity Navigator API"""
@@ -61,7 +55,7 @@ def _extract_charity_mission(data):
     return "No description available"
 
 
-def get_charity_descriptions(top_charities, app_id=None, app_key=None):
+def get_charity_descriptions(top_charities, app_id, app_key):
     """Fetch descriptions for all top charities"""
     charity_descriptions = {}
 
@@ -72,7 +66,6 @@ def get_charity_descriptions(top_charities, app_id=None, app_key=None):
 
         # Add small delay to be respectful to API
         time.sleep(0.1)
-
     return charity_descriptions
 
 

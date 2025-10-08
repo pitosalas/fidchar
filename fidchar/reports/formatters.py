@@ -5,8 +5,6 @@ These classes handle ONLY formatting - no business logic.
 """
 
 from abc import ABC, abstractmethod
-import pandas as pd
-from tables.great_tables_builder import create_gt_recurring_donations_table
 
 
 class ReportFormatter(ABC):
@@ -84,7 +82,10 @@ class HTMLFormatter(ReportFormatter):
 
     def format_charity_detail_section(self, data):
         """Format charity detail section as HTML"""
-        section = f"<div><h3>{data['index']}. {data['org_name']}</h3>"
+        badge = ""
+        if data.get('focus_charity'):
+            badge = " <span style=\"background:#ffd24d; color:#333; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;\">FOCUS</span>"
+        section = f"<div><h3>{data['index']}. {data['org_name']}{badge}</h3>"
 
         if data['has_graph']:
             section += f"""
@@ -151,8 +152,7 @@ class MarkdownFormatter(ReportFormatter):
         """Format recurring donations as Markdown table"""
         if data is None:
             return "\n## Recurring Donations\n\nNo recurring donations found.\n"
-
-        section = f"\n## Recurring Donations\n\n"
+        section = "\n## Recurring Donations\n\n"
         section += f"Organizations with recurring donations (4+ years) ({data['org_count']} organizations):\n\n"
         # Include Period column now that recurring analysis supplies it
         section += "| EIN | Organization | First Year | Years | Period | Amount | Total Ever Donated | Last Donation |\n"
@@ -173,15 +173,16 @@ class MarkdownFormatter(ReportFormatter):
 
     def format_charity_detail_section(self, data):
         """Format charity detail section as Markdown"""
-        section = f"#### {data['index']}. {data['org_name']}\n\n"
+        focus = " **[FOCUS]**" if data.get('focus_charity') else ""
+        section = f"#### {data['index']}. {data['org_name']}{focus}\n\n"
 
         if data['has_graph']:
-            section += f"| Charity Details | 10-Year Trend |\n"
-            section += f"|:----------------|:-------------:|\n"
+            section += "| Charity Details | 10-Year Trend |\n"
+            section += "|:----------------|:-------------:|\n"
             section += f"| **Tax ID:** {data['tax_id']}<br>**Sector:** {data['sector']}<br>**Total Donated:** ${data['total_donated']:,.2f}<br>**Number of Donations:** {data['donation_count']} | ![10-year trend]({data['graph_filename']}) |\n\n"
         else:
-            section += f"| Charity Details |\n"
-            section += f"|:----------------|\n"
+            section += "| Charity Details |\n"
+            section += "|:----------------|\n"
             section += f"| **Tax ID:** {data['tax_id']}<br>**Sector:** {data['sector']}<br>**Total Donated:** ${data['total_donated']:,.2f}<br>**Number of Donations:** {data['donation_count']}<br>*No donations in last 10 years* |\n\n"
 
         if data['description']:
@@ -262,7 +263,8 @@ Organizations with recurring donation schedules ({data['org_count']} organizatio
 
     def format_charity_detail_section(self, data):
         """Format charity detail section as plain text"""
-        section = f"""{data['index']}. {data['org_name']}
+        focus = " [FOCUS]" if data.get('focus_charity') else ""
+        section = f"""{data['index']}. {data['org_name']}{focus}
 {'-' * 80}
 Tax ID:              {data['tax_id']}
 Sector:              {data['sector']}
@@ -273,13 +275,13 @@ Number of Donations: {data['donation_count']}
         if data['has_graph']:
             section += f"10-Year Trend:       {data['graph_filename']}\n"
         else:
-            section += f"10-Year Trend:       No donations in last 10 years\n"
+            section += "10-Year Trend:       No donations in last 10 years\n"
 
         if data['description']:
             section += f"\n{data['description']}\n"
 
         if data['evaluation']:
-            section += f"\nCharity Evaluation:\n"
+            section += "\nCharity Evaluation:\n"
             section += f"  Outstanding:    {data['evaluation'].outstanding_count} metrics\n"
             section += f"  Acceptable:     {data['evaluation'].acceptable_count} metrics\n"
             section += f"  Unacceptable:   {data['evaluation'].unacceptable_count} metrics\n"

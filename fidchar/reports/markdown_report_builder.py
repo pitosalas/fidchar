@@ -4,12 +4,11 @@
 Orchestrates the creation of the complete markdown report.
 """
 
-import pandas as pd
 from datetime import datetime
 from tables.table_builder import (
     create_category_summary_table, create_yearly_analysis_table,
     create_one_time_donations_table, create_stopped_recurring_table,
-    create_top_charities_table, create_donation_history_table,
+    create_top_charities_table,
     create_consistent_donors_table
 )
 from tables.great_tables_builder import save_all_gt_tables
@@ -79,8 +78,7 @@ class MarkdownReportBuilder(BaseReportBuilder):
         """Generate the one-time donations section"""
         one_time_table = create_one_time_donations_table(one_time)
         one_time_total = one_time["Total_Amount"].sum()
-
-        section = f"\n## One-Time Donations\n\n"
+        section = "\n## One-Time Donations\n\n"
         section += f"Organizations that received a single donation ({len(one_time)} organizations):\n\n"
         section += one_time_table
 
@@ -95,8 +93,7 @@ class MarkdownReportBuilder(BaseReportBuilder):
         """Generate the stopped recurring donations section"""
         stopped_table = create_stopped_recurring_table(stopped_recurring)
         stopped_total = stopped_recurring["Total_Amount"].sum()
-
-        section = f"\n## Stopped Recurring Donations\n\n"
+        section = "\n## Stopped Recurring Donations\n\n"
         section += f"Organizations with recurring donations that appear to have stopped ({len(stopped_recurring)} organizations):\n\n"
         section += stopped_table
 
@@ -109,7 +106,7 @@ class MarkdownReportBuilder(BaseReportBuilder):
 
     def generate_top_charities_section(self, top_charities, html_files):
         """Generate the top charities ranking section"""
-        section = f"\n## Top 10 Charities by Total Donations\n\n"
+        section = "\n## Top 10 Charities by Total Donations\n\n"
 
         if html_files:
             section += f"[View Top Charities Table]({html_files['top_charities']})\n\n"
@@ -122,11 +119,10 @@ class MarkdownReportBuilder(BaseReportBuilder):
     def generate_consistent_donors_section(self, consistent_donors, html_files):
         """Generate the consistent donations section"""
         if not consistent_donors:
-            section = f"\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
+            section = "\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
             section += "No charities meet the criteria for consistent donations over the last 5 years.\n"
             return section
-
-        section = f"\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
+        section = "\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
         section += f"Charities that received donations consistently for the last 5 years with at least $500 per year ({len(consistent_donors)} organizations):\n\n"
 
         if html_files:
@@ -150,9 +146,21 @@ class MarkdownReportBuilder(BaseReportBuilder):
         data = self.prepare_charity_detail_data(i, tax_id)
         return self.formatter.format_charity_detail_section(data)
 
+    def generate_focus_charities_section(self):
+        rows = self.build_focus_rows()
+        if not rows:
+            return "\n## Focus Charities\n\nNo focus charities identified.\n"
+        section = "\n## Focus Charities\n\nCharities flagged as strategic focus (from evaluation):\n\n"
+        section += "| EIN | Organization | Sector | Years | Period | Total Donated | Alignment |\n"
+        section += "|:----|:-------------|:-------|------:|:------:|-------------:|----------:|\n"
+        for r in rows:
+            align_disp = r['alignment_score'] if r['alignment_score'] is not None else '—'
+            section += f"| {r['ein']} | {r['organization']} | {r['sector']} | {r['years_supported']} | {r['period']} | ${r['total_donated']:,.2f} | {align_disp} |\n"
+        return section
+
     def generate_analysis_section(self):
         """Generate strategic analysis section with visualizations"""
-        section = f"""
+        section = """
 <div style="page-break-before: always;"></div>
 
 ## Strategic Analysis
@@ -184,7 +192,7 @@ This section provides insights to help you optimize your charitable giving strat
         total_donations = len(self.df)
 
         html_files = None
-        if self.config.get("generate_html", self.config.get("generate_pdf", False)):
+        if self.config.get("generate_html", False):
             print("Generating Great Tables HTML files...")
             html_files = save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
                                            consistent_donors, top_charities, total_amount, self.config,
@@ -195,7 +203,18 @@ This section provides insights to help you optimize your charitable giving strat
 
         report = self.generate_report_header(total_amount, total_donations)
 
-        sections = self.get_section_order()
+        sections = self.config.get("sections", {})
+
+        # Auto-insert focus section after top_charities if focus charities exist and not explicitly listed
+        if not any((s.get('name') if isinstance(s, dict) else s) == 'focus' for s in sections):
+            if self.get_focus_charities():
+                augmented = []
+                for s in sections:
+                    augmented.append(s)
+                    sid = s.get('name') if isinstance(s, dict) else s
+                    if sid == 'top_charities':
+                        augmented.append({'name': 'focus'})
+                sections = augmented
 
         for section in sections:
             section_id, section_options = self.parse_section_config(section)
@@ -213,6 +232,8 @@ This section provides insights to help you optimize your charitable giving strat
             elif section_id == "patterns":
                 report += self.generate_one_time_section(one_time)
                 report += self.generate_stopped_recurring_section(stopped_recurring)
+            elif section_id == "focus":
+                report += self.generate_focus_charities_section()
             elif section_id == "recurring":
                 max_shown = section_options.get("max_shown", 20)
                 report += self.generate_recurring_donations_section(recurring_donations, max_shown)

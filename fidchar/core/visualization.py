@@ -8,7 +8,6 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime
 
 # Set seaborn style for Tufte-inspired minimalist charts
 sns.set_style("white")
@@ -18,13 +17,12 @@ plt.rcParams["axes.spines.top"] = False
 
 
 def create_yearly_histograms(yearly_amounts, yearly_counts):
-    """Create Tufte-style minimalist histograms for yearly data"""
     # Create images directory if it doesn't exist
     os.makedirs("../output/images", exist_ok=True)
 
     # Create amount histogram
     fig, ax = plt.subplots(figsize=(8, 4))
-    bars = ax.bar(yearly_amounts.index, yearly_amounts.values,
+    ax.bar(yearly_amounts.index, yearly_amounts.values,
                   color="steelblue", alpha=0.7, width=0.6)
 
     # Tufte style: minimal text, remove chart junk
@@ -47,7 +45,7 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
 
     # Create count histogram
     fig, ax = plt.subplots(figsize=(8, 4))
-    bars = ax.bar(yearly_counts.index, yearly_counts.values,
+    ax.bar(yearly_counts.index, yearly_counts.values,
                   color="darkgreen", alpha=0.7, width=0.6)
 
     ax.set_title("Number of Donations by Year", fontsize=12, pad=15, fontweight="normal")
@@ -65,11 +63,9 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
 
 
 def create_charity_yearly_graphs(top_charities, charity_details):
-    """Create Tufte-style minimalist yearly donation graphs for each top charity"""
     created_graphs = {}
 
     for i, (tax_id, charity_data) in enumerate(top_charities.iterrows(), 1):
-        org_name = charity_data["Organization"]
         donations = charity_details[tax_id].copy()
 
         # Group by year and sum donations
@@ -101,7 +97,7 @@ def _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_gr
 
     # Use seaborn color palette
     color = sns.color_palette("husl", 10)[i-1] if i <= 10 else "steelblue"
-    bars = ax.bar(year_range, year_amounts, color=color, alpha=0.8, width=0.7)
+    ax.bar(year_range, year_amounts, color=color, alpha=0.8, width=0.7)
 
     # Ultra-minimal: no title for embedded thumbnail
     # Only show essential data
@@ -181,10 +177,6 @@ def create_efficiency_frontier(df, charity_evaluations):
     eval_df["Score"] = eval_scores
 
     fig, ax = plt.subplots(figsize=(12, 8))
-
-    min_score = eval_df["Score"].min()
-    max_score = eval_df["Score"].max()
-
     ax.scatter(eval_df["Score"], eval_df["Total_Donated"],
               s=200, c="#4a90e2", alpha=0.7, edgecolors="black", linewidth=0.5)
 
