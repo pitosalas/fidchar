@@ -118,46 +118,76 @@ def analyze_consistent_donors(df, min_years=5, min_amount=500):
     return consistent_donors
 
 
-def analyze_recurring_donations(df, sort_by="total", min_years=4):
-    """Extract recurring donations based on number of years supported
+def analyze_recurring_donations(df, sort_by="total", min_years=4, stale_years=2):
+    """Analyze recurring donations with richer logic.
 
-    Args:
-        df: DataFrame with donation data
-        sort_by: Sort order - "total" for total donated, "annual" for annual amount (default: "total")
-        min_years: Minimum number of years receiving donations to be considered recurring (default: 4)
+    Features:
+    - Derives Year from Submit Date if not present.
+    - Identifies recurring candidates by Recurring field containing 'annually' or 'semi-annually'.
+    - Groups by Tax ID and requires at least `min_years` distinct donation years.
+    - Excludes charities whose last donation is older than `stale_years` years (stopped schedules).
+    - Computes average annual amount (Amount), total ever donated, first year, years supported.
+    - Adds Period column inferred from Recurring string: 'Annual', 'Semi-Annual', or 'Unknown'.
+    - Sorts by total donated (default) or annual amount.
     """
-    current_year = datetime.now().year
-
-    result_data = []
-    for tax_id in df['Tax ID'].dropna().unique():
-        charity_data = df[df['Tax ID'] == tax_id]
-
-        years_donated = charity_data['Year'].unique()
-        num_years = len(years_donated)
-
-        if num_years >= min_years:
-            first_year = int(charity_data['Year'].min())
-            last_donation = charity_data['Submit Date'].max()
-            total_donated = charity_data['Amount_Numeric'].sum()
-            avg_annual = total_donated / num_years
-            org_name = charity_data['Organization'].iloc[0]
-
-            result_data.append({
-                'EIN': tax_id,
-                'Organization': org_name,
-                'First_Year': first_year,
-                'Years_Supported': num_years,
-                'Amount': avg_annual,
-                'Total_Ever_Donated': total_donated,
-                'Last_Donation_Date': last_donation
-            })
-
-    if not result_data:
+    if df.empty:
         return pd.DataFrame()
 
-    result = pd.DataFrame(result_data)
+    work = df.copy()
 
-    sort_column = "Total_Ever_Donated" if sort_by == "total" else "Amount"
-    result = result.sort_values(sort_column, ascending=False)
+    # Derive Year if missing
+    if 'Year' not in work.columns:
+        work['Year'] = work['Submit Date'].dt.year
 
-    return result
+    # Filter to donations that appear to be part of a recurring schedule
+    recurring_mask = work['Recurring'].str.contains('annually|semi-annually', case=False, na=False)
+    work = work[recurring_mask]
+    if work.empty:
+        return pd.DataFrame()
+
+    current_year = datetime.now().year
+
+    results = []
+    for tax_id in work['Tax ID'].dropna().unique():
+        charity = work[work['Tax ID'] == tax_id]
+        years = sorted(charity['Year'].unique())
+        num_years = len(years)
+        if num_years < min_years:
+            continue
+
+        last_donation_date = charity['Submit Date'].max()
+        if last_donation_date.year < current_year - stale_years:
+            # Consider this schedule stale; skip
+            continue
+
+        total = charity['Amount_Numeric'].sum()
+        avg = total / num_years if num_years else 0
+        org_name = charity['Organization'].iloc[0]
+
+        # Determine Period classification
+        recurring_values = charity['Recurring'].dropna().astype(str).str.lower().unique()
+        if any('semi-annually' in r for r in recurring_values):
+            period = 'Semi-Annual'
+        elif any('annually' in r for r in recurring_values):
+            period = 'Annual'
+        else:
+            period = 'Unknown'
+
+        results.append({
+            'EIN': tax_id,
+            'Organization': org_name,
+            'First_Year': min(years),
+            'Years_Supported': num_years,
+            'Amount': avg,
+            'Total_Ever_Donated': total,
+            'Period': period,
+            'Last_Donation_Date': last_donation_date
+        })
+
+    if not results:
+        return pd.DataFrame()
+
+    result_df = pd.DataFrame(results)
+    sort_col = 'Total_Ever_Donated' if sort_by == 'total' else 'Amount'
+    result_df = result_df.sort_values(sort_col, ascending=False).reset_index(drop=True)
+    return result_df

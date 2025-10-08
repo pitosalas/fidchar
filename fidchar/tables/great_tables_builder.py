@@ -184,15 +184,27 @@ def create_gt_recurring_donations_table(recurring_donations, max_shown=20):
     total_recurring = recurring_donations['Amount'].sum()
     total_ever = recurring_donations['Total_Ever_Donated'].sum()
 
+    # Include Period column if present
+    display_columns = ['Tax ID', 'Organization', 'First Year', 'Years']
+    if 'Period' in recurring_donations.columns:
+        # If Period wasn't already present due to earlier logic, try to map it over
+        if 'Period' in recurring_donations.columns and 'Period' not in df.columns:
+            # Safely align Period values by EIN
+            period_map = recurring_donations.set_index('EIN')['Period'] if 'EIN' in recurring_donations.columns else None
+            if period_map is not None and 'Tax ID' in df.columns:
+                df['Period'] = df['Tax ID'].map(period_map)
+        display_columns.append('Period')
+    display_columns += ['Annual Amount', 'Total Ever Donated', 'Last Donation']
+
     gt_table = (
-        GT(df[['Tax ID', 'Organization', 'First Year', 'Years', 'Annual Amount', 'Total Ever Donated', 'Last Donation']])
+        GT(df[display_columns])
         .tab_header(
             title="Recurring Donations",
             subtitle=f"{len(recurring_donations)} organizations with recurring donations (4+ years)"
         )
         .fmt_currency(columns=['Annual Amount', 'Total Ever Donated'], currency="USD", decimals=2)
         .fmt_date(columns='Last Donation', date_style='iso')
-        .cols_align(align="center", columns=["Tax ID", "First Year", "Years"])
+        .cols_align(align="center", columns=[c for c in ["Tax ID", "First Year", "Years", "Period"] if c in display_columns])
         .cols_align(align="left", columns="Organization")
         .cols_align(align="right", columns=['Annual Amount', 'Total Ever Donated'])
         .cols_align(align="center", columns="Last Donation")

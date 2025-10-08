@@ -125,33 +125,33 @@ class TestAnalyzeRecurringDonations:
     """Test recurring donations analysis"""
 
     def test_returns_dataframe(self, recurring_donations_df):
-        result = analyze_recurring_donations(recurring_donations_df)
+        result = analyze_recurring_donations(recurring_donations_df, min_years=1)
         assert isinstance(result, pd.DataFrame)
 
     def test_filters_old_donations(self, recurring_donations_df):
-        result = analyze_recurring_donations(recurring_donations_df)
+        result = analyze_recurring_donations(recurring_donations_df, min_years=1)
         eins = result['EIN'].tolist()
         assert '33-3333333' not in eins
 
     def test_includes_recent_donations(self, recurring_donations_df):
-        result = analyze_recurring_donations(recurring_donations_df)
+        result = analyze_recurring_donations(recurring_donations_df, min_years=1)
         eins = result['EIN'].tolist()
         assert '11-1111111' in eins
         assert '22-2222222' in eins
         assert '44-4444444' in eins
 
     def test_has_required_columns(self, recurring_donations_df):
-        result = analyze_recurring_donations(recurring_donations_df)
+        result = analyze_recurring_donations(recurring_donations_df, min_years=1)
         required_cols = ['EIN', 'Organization', 'Amount', 'Total_Ever_Donated', 'Period', 'Last_Donation_Date']
         assert all(col in result.columns for col in required_cols)
 
     def test_sorted_by_amount_descending(self, recurring_donations_df):
-        result = analyze_recurring_donations(recurring_donations_df)
+        result = analyze_recurring_donations(recurring_donations_df, min_years=1)
         amounts = result['Amount'].values
         assert all(amounts[i] >= amounts[i+1] for i in range(len(amounts)-1))
 
     def test_calculates_total_ever_donated(self, recurring_donations_df):
-        result = analyze_recurring_donations(recurring_donations_df)
+        result = analyze_recurring_donations(recurring_donations_df, min_years=1)
         charity_d = result[result['EIN'] == '44-4444444'].iloc[0]
         assert charity_d['Total_Ever_Donated'] == 2000.0
 
@@ -164,7 +164,7 @@ class TestAnalyzeRecurringDonations:
             'Submit Date': pd.to_datetime(['2025-01-15'])
         }
         df = pd.DataFrame(data)
-        result = analyze_recurring_donations(df)
+        result = analyze_recurring_donations(df, min_years=1)
         assert len(result) == 0
 
 

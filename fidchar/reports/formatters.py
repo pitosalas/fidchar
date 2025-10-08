@@ -154,12 +154,13 @@ class MarkdownFormatter(ReportFormatter):
 
         section = f"\n## Recurring Donations\n\n"
         section += f"Organizations with recurring donations (4+ years) ({data['org_count']} organizations):\n\n"
-
-        section += "| EIN | Organization | First Year | Years | Amount | Total Ever Donated | Last Donation |\n"
-        section += "|:----|:-------------|:----------:|:-----:|-------:|------------------:|:-------------|\n"
+        # Include Period column now that recurring analysis supplies it
+        section += "| EIN | Organization | First Year | Years | Period | Amount | Total Ever Donated | Last Donation |\n"
+        section += "|:----|:-------------|:----------:|:-----:|:------:|-------:|------------------:|:-------------|\n"
 
         for row in data['rows']:
-            section += f"| {row['ein']} | {row['organization']} | {row['first_year']} | {row['years']} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
+            period = row.get('period', 'Unknown')
+            section += f"| {row['ein']} | {row['organization']} | {row['first_year']} | {row['years']} | {period} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
 
         if data['overflow_count'] > 0:
             section += f"\n*... and {data['overflow_count']} more organizations*\n"
