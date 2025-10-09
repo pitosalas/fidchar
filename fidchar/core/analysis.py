@@ -118,6 +118,58 @@ def analyze_consistent_donors(df, min_years=5, min_amount=500):
     return consistent_donors
 
 
+def determine_focus_charities(df, count, min_years, min_amount):
+    """Determine focus charities based on YOUR donation patterns.
+
+    A charity is a "focus" charity if:
+    1. You donated to them in the previous calendar year
+    2. In the last 'count' years, you donated in at least 'min_years' years
+    3. Each qualifying year had donations >= min_amount
+
+    Args:
+        df: DataFrame with donation data
+        count: Number of recent years to examine (e.g., 15)
+        min_years: Minimum years with donations >= min_amount (e.g., 5)
+        min_amount: Minimum donation amount per year (e.g., 1000)
+
+    Returns:
+        Set of Tax IDs that are focus charities
+    """
+    current_year = datetime.now().year
+    previous_year = current_year - 1
+
+    work = df.copy()
+    if 'Year' not in work.columns:
+        work['Year'] = work['Submit Date'].dt.year
+
+    # Only look at recent years
+    recent_years = list(range(current_year - count, current_year + 1))
+    work = work[work['Year'].isin(recent_years)]
+
+    focus_charities = set()
+
+    for tax_id in work['Tax ID'].dropna().unique():
+        charity_data = work[work['Tax ID'] == tax_id]
+
+        # Check if donated in previous year
+        prev_year_donations = charity_data[charity_data['Year'] == previous_year]
+        if prev_year_donations.empty:
+            continue
+
+        prev_year_total = prev_year_donations['Amount_Numeric'].sum()
+        if prev_year_total < min_amount:
+            continue
+
+        # Count qualifying years in the recent period
+        yearly_totals = charity_data.groupby('Year')['Amount_Numeric'].sum()
+        qualifying_years = sum(1 for amount in yearly_totals if amount >= min_amount)
+
+        if qualifying_years >= min_years:
+            focus_charities.add(tax_id)
+
+    return focus_charities
+
+
 def analyze_recurring_donations(df, sort_by, min_years, stale_years):
     """Analyze recurring donations with richer logic.
 

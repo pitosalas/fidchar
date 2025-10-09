@@ -11,8 +11,8 @@ from reports.base_report_builder import BaseReportBuilder
 
 class TextReportBuilder(BaseReportBuilder):
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations):
-        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
+    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
+        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
         self.formatter = fmt.TextFormatter()
 
     def generate_report_header(self, total_amount, total_donations):
@@ -97,10 +97,13 @@ Organizations with recurring donations that appear to have stopped ({len(stopped
 
     def generate_top_charities_section(self, top_charities):
         """Generate the top charities ranking section with inline table"""
+        # Augment with focus flags
+        augmented_charities = self.prepare_top_charities_data(top_charities)
+
         section = f"""TOP 10 CHARITIES BY TOTAL DONATIONS
 {'-' * 80}
 
-{tab.create_top_charities_table(top_charities)}
+{tab.create_top_charities_table(augmented_charities)}
 
 """
         return section
@@ -116,17 +119,20 @@ No charities meet the criteria for consistent donations over the last 5 years.
 """
             return section
 
+        # Augment with focus flags
+        augmented_donors = self.prepare_consistent_donors_data(consistent_donors)
+
         section = f"""CONSISTENT DONORS (LAST 5 YEARS, $500+ ANNUALLY)
 {'-' * 80}
 
 Charities that received donations consistently for the last 5 years with at least
-$500 per year ({len(consistent_donors)} organizations):
+$500 per year ({len(augmented_donors)} organizations):
 
-{tab.create_consistent_donors_table(consistent_donors)}
+{tab.create_consistent_donors_table(augmented_donors)}
 
 """
 
-        total_consistent = sum(donor['total_5_year'] for donor in consistent_donors.values())
+        total_consistent = sum(donor['total_5_year'] for donor in augmented_donors.values())
         section += f"Total to consistent donors (5 years): ${total_consistent:,.2f}\n\n"
 
         return section
@@ -140,6 +146,11 @@ $500 per year ({len(consistent_donors)} organizations):
         """Generate detailed section for a single charity in text format"""
         data = self.prepare_charity_detail_data(i, tax_id)
         return self.formatter.format_charity_detail_section(data)
+
+    def generate_focus_summary_section(self):
+        """Generate focus charities summary section"""
+        data = self.prepare_focus_summary_data()
+        return self.formatter.format_focus_summary_section(data)
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
                        stopped_recurring, top_charities, consistent_donors, recurring_donations):
@@ -164,6 +175,8 @@ $500 per year ({len(consistent_donors)} organizations):
             elif section_id == "patterns":
                 report += self.generate_one_time_section(one_time)
                 report += self.generate_stopped_recurring_section(stopped_recurring)
+            elif section_id == "focus_summary":
+                report += self.generate_focus_summary_section()
             elif section_id == "recurring":
                 max_shown = section_options.get("max_shown", 20)
                 report += self.generate_recurring_donations_section(recurring_donations, max_shown)

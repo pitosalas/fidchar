@@ -20,6 +20,11 @@ class ReportFormatter(ABC):
         """Format charity detail section with prepared data"""
         pass
 
+    @abstractmethod
+    def format_focus_summary_section(self, data):
+        """Format focus charities summary section with prepared data"""
+        pass
+
 
 class HTMLFormatter(ReportFormatter):
     """HTML-specific formatting"""
@@ -50,10 +55,12 @@ class HTMLFormatter(ReportFormatter):
 
         for i, row in enumerate(data['rows']):
             bg_color = "#f8f9fa" if i % 2 == 0 else "white"
+            focus_badge = " <span style=\"background:#ffd24d; color:#333; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;\">FOCUS</span>" if row.get('is_focus', False) else ""
+            org_name = row['organization'] + focus_badge
             table_html += f"""
             <tr style="background: {bg_color}; border-bottom: 1px solid #ddd;">
                 <td style="padding: 8px;">{row['ein']}</td>
-                <td style="padding: 8px;">{row['organization']}</td>
+                <td style="padding: 8px;">{org_name}</td>
                 <td style="padding: 8px; text-align: center;">{row['first_year']}</td>
                 <td style="padding: 8px; text-align: center;">{row['years']}</td>
                 <td style="padding: 8px; text-align: right;">${row['amount']:,.2f}</td>
@@ -144,6 +151,50 @@ class HTMLFormatter(ReportFormatter):
         section += "</div>"
         return section
 
+    def format_focus_summary_section(self, data):
+        """Format focus charities summary as HTML"""
+        if data is None:
+            return """
+    <div class="report-section">
+        <h2 class="section-title">Focus Charities Summary</h2>
+        <p>No focus charities identified.</p>
+    </div>"""
+
+        table_html = """
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+            <tr style="background: #f8f9fa; border-bottom: 2px solid #333;">
+                <th style="padding: 10px; text-align: left;">EIN</th>
+                <th style="padding: 10px; text-align: left;">Organization</th>
+                <th style="padding: 10px; text-align: right;">Total Donated</th>
+                <th style="padding: 10px; text-align: left;">Last Donation</th>
+            </tr>
+        </thead>
+        <tbody>"""
+
+        for i, row in enumerate(data['rows']):
+            bg_color = "#f8f9fa" if i % 2 == 0 else "white"
+            last_date_str = row['last_date'].strftime('%Y-%m-%d') if row['last_date'] else 'N/A'
+            table_html += f"""
+            <tr style="background: {bg_color}; border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;">{row['ein']}</td>
+                <td style="padding: 8px;">{row['organization']}</td>
+                <td style="padding: 8px; text-align: right;">${row['total_donated']:,.2f}</td>
+                <td style="padding: 8px;">{last_date_str}</td>
+            </tr>"""
+
+        table_html += """
+        </tbody>
+    </table>"""
+
+        return f"""
+    <div class="report-section">
+        <h2 class="section-title">Focus Charities Summary</h2>
+        <p>{data['count']} charities identified as strategic focus based on your donation patterns:</p>
+        {table_html}
+        <p style="margin-top: 15px;"><strong>Total donated to focus charities:</strong> ${data['total']:,.2f}</p>
+    </div>"""
+
 
 class MarkdownFormatter(ReportFormatter):
     """Markdown-specific formatting"""
@@ -160,7 +211,9 @@ class MarkdownFormatter(ReportFormatter):
 
         for row in data['rows']:
             period = row.get('period', 'Unknown')
-            section += f"| {row['ein']} | {row['organization']} | {row['first_year']} | {row['years']} | {period} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
+            focus_badge = " **[FOCUS]**" if row.get('is_focus', False) else ""
+            org_name = row['organization'] + focus_badge
+            section += f"| {row['ein']} | {org_name} | {row['first_year']} | {row['years']} | {period} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
 
         if data['overflow_count'] > 0:
             section += f"\n*... and {data['overflow_count']} more organizations*\n"
@@ -213,6 +266,24 @@ class MarkdownFormatter(ReportFormatter):
 
         return section
 
+    def format_focus_summary_section(self, data):
+        """Format focus charities summary as Markdown"""
+        if data is None:
+            return "\n## Focus Charities Summary\n\nNo focus charities identified.\n"
+
+        section = "\n## Focus Charities Summary\n\n"
+        section += f"{data['count']} charities identified as strategic focus based on your donation patterns:\n\n"
+        section += "| EIN | Organization | Total Donated | Last Donation |\n"
+        section += "|:----|:-------------|-------------:|:-------------|\n"
+
+        for row in data['rows']:
+            last_date_str = row['last_date'].strftime('%Y-%m-%d') if row['last_date'] else 'N/A'
+            section += f"| {row['ein']} | {row['organization']} | ${row['total_donated']:,.2f} | {last_date_str} |\n"
+
+        section += f"\n**Total donated to focus charities:** ${data['total']:,.2f}\n\n"
+
+        return section
+
 
 class TextFormatter(ReportFormatter):
     """Plain text formatting"""
@@ -237,9 +308,11 @@ Organizations with recurring donation schedules ({data['org_count']} organizatio
         from tabulate import tabulate
         table_data = []
         for row in data['rows']:
+            focus_badge = " [FOCUS]" if row.get('is_focus', False) else ""
+            org_name = (row['organization'] + focus_badge)[:40]
             table_data.append([
                 row['ein'],
-                row['organization'][:40],
+                org_name,
                 row['first_year'],
                 row['years'],
                 f"${row['amount']:,.2f}",
@@ -302,5 +375,41 @@ Number of Donations: {data['donation_count']}
 
             section += f"\nAlignment with Your Goals: {data['evaluation'].alignment_score}/100 ({alignment_label})\n"
             section += f"\n{data['evaluation'].summary}\n\n"
+
+        return section
+
+    def format_focus_summary_section(self, data):
+        """Format focus charities summary as plain text"""
+        if data is None:
+            return f"""FOCUS CHARITIES SUMMARY
+{'-' * 80}
+
+No focus charities identified.
+
+"""
+
+        section = f"""FOCUS CHARITIES SUMMARY
+{'-' * 80}
+
+{data['count']} charities identified as strategic focus based on your donation patterns:
+
+"""
+
+        from tabulate import tabulate
+        table_data = []
+        for row in data['rows']:
+            last_date_str = row['last_date'].strftime('%Y-%m-%d') if row['last_date'] else 'N/A'
+            table_data.append([
+                row['ein'],
+                row['organization'][:40],
+                f"${row['total_donated']:,.2f}",
+                last_date_str
+            ])
+
+        section += tabulate(table_data,
+                           headers=['EIN', 'Organization', 'Total Donated', 'Last Donation'],
+                           tablefmt='simple')
+        section += "\n"
+        section += f"\nTotal donated to focus charities: ${data['total']:,.2f}\n\n"
 
         return section

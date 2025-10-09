@@ -1,6 +1,6 @@
 # Charitable Donation Analysis System - Current State
 
-*Last Updated: October 6, 2025*
+*Last Updated: October 9, 2025*
 
 ## System Overview
 
@@ -27,8 +27,10 @@ fidchar/
 │   │   └── charity_evaluator.py      # Charapi integration
 │   ├── tables/                # Table generation
 │   │   └── great_tables_builder.py   # Great Tables HTML generation
-│   ├── main.py                # Orchestration
-│   └── config.yaml            # Configuration file
+│   ├── conf/                  # Hydra configuration
+│   │   └── config.yaml        # Main config file
+│   ├── main.py                # Orchestration (Hydra-powered)
+│   └── config_schema.py       # Structured config dataclasses
 ├── tests/                     # Unit tests
 │   ├── test_data_processing.py
 │   ├── test_analysis.py
@@ -87,9 +89,9 @@ fidchar/
 - **Configurable Parameters**: min_years, min_amount, sort_by, max_shown
 - **PDF Generation**: Browser-based (Print to PDF)
 
-## Configuration System
+## Configuration System (Hydra)
 
-### YAML Configuration (`config.yaml`)
+### YAML Configuration (`fidchar/conf/config.yaml`)
 ```yaml
 # Input/Output
 input_file: "../data.csv"
@@ -136,6 +138,8 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - `great-tables` - Professional HTML tables
 - `pyyaml` - Configuration file parsing
 - `tabulate` - Text table formatting
+- `hydra-core` - Configuration management with CLI overrides
+- `omegaconf` - Configuration object system
 
 ### External Dependencies
 - `uv` - Python package management
@@ -145,6 +149,16 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 ## Current Status
 
 ### ✅ Recently Completed Features
+- **Hydra Configuration Management** (Oct 9, 2025)
+  - CLI overrides for any config value
+  - Multi-run capability for parameter sweeps
+  - Config visibility (prints resolved config after each run)
+  - Cleaner config access with dot notation
+  - Original files archived for easy revert
+- Matplotlib Agg backend (prevents macOS Dock icon appearance)
+- Unified HTML/Markdown/Text report builder pattern
+- Shortened identifiers to ~15 characters (coding standards)
+- Fixed charapi absolute imports
 - Inheritance-based report builder architecture (BaseReportBuilder)
 - Configurable consistent donations (min_years, min_amount parameters)
 - Redefined recurring donations based on years supported (not CSV field)
@@ -155,7 +169,7 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - Single-color bubble chart (removed color coding)
 - All charities labeled on efficiency frontier
 - Updated HTML report to include analysis section
-- Comprehensive unit test suite
+- Comprehensive unit test suite (57 tests passing)
 - Moved obsolete files to archive/
 
 ### 📋 Active Configuration Options
@@ -191,6 +205,30 @@ cd /Users/pitosalas/mydev/fidchar/fidchar/
 uv run python main.py
 ```
 
+### CLI Overrides (New with Hydra!)
+```bash
+# Override output formats
+uv run python main.py generate_html=false generate_textfile=true
+
+# Override input file
+uv run python main.py input_file=../data2.csv
+
+# Override nested config
+uv run python main.py sections[2].options.min_years=15
+
+# Multi-run experiments
+uv run python main.py -m sections[2].options.min_years=5,10,15,20
+```
+
+### View Configuration
+```bash
+# Show help and current config
+uv run python main.py --help
+
+# Show resolved config without running
+uv run python main.py --cfg job
+```
+
 ### Output
 ```
 Cleaned output directory
@@ -198,7 +236,13 @@ Processing input file: ../data.csv
 Creating analysis visualizations...
 Generating reports...
 Generating Great Tables HTML files...
-Reports generated: comprehensive_report.html, donation_analysis.md in the output directory
+Reports generated: donation_analysis.html, donation_analysis.md in the output directory
+
+--- Configuration Used ---
+input_file: ../data.csv
+generate_html: true
+generate_markdown: true
+...
 ```
 
 ### Generated Files

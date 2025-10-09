@@ -19,8 +19,8 @@ from reports.formatters import MarkdownFormatter
 class MarkdownReportBuilder(BaseReportBuilder):
     """Markdown report builder with inherited state"""
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations):
-        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
+    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
+        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
         self.formatter = MarkdownFormatter()
 
     def generate_report_header(self, total_amount, total_donations):
@@ -106,12 +106,15 @@ class MarkdownReportBuilder(BaseReportBuilder):
 
     def generate_top_charities_section(self, top_charities, html_files):
         """Generate the top charities ranking section"""
+        # Augment with focus flags
+        augmented_charities = self.prepare_top_charities_data(top_charities)
+
         section = "\n## Top 10 Charities by Total Donations\n\n"
 
         if html_files:
             section += f"[View Top Charities Table]({html_files['top_charities']})\n\n"
         else:
-            top_charities_table = create_top_charities_table(top_charities)
+            top_charities_table = create_top_charities_table(augmented_charities)
             section += f"{top_charities_table}\n\n"
 
         return section
@@ -122,16 +125,20 @@ class MarkdownReportBuilder(BaseReportBuilder):
             section = "\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
             section += "No charities meet the criteria for consistent donations over the last 5 years.\n"
             return section
+
+        # Augment with focus flags
+        augmented_donors = self.prepare_consistent_donors_data(consistent_donors)
+
         section = "\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
-        section += f"Charities that received donations consistently for the last 5 years with at least $500 per year ({len(consistent_donors)} organizations):\n\n"
+        section += f"Charities that received donations consistently for the last 5 years with at least $500 per year ({len(augmented_donors)} organizations):\n\n"
 
         if html_files:
             section += f"[View Consistent Donations Table]({html_files['consistent']})\n\n"
         else:
-            consistent_table = create_consistent_donors_table(consistent_donors)
+            consistent_table = create_consistent_donors_table(augmented_donors)
             section += f"{consistent_table}\n\n"
 
-        total_consistent = sum(donor['total_5_year'] for donor in consistent_donors.values())
+        total_consistent = sum(donor['total_5_year'] for donor in augmented_donors.values())
         section += f"**Total to consistent donors (5 years):** ${total_consistent:,.2f}\n"
 
         return section
@@ -155,8 +162,14 @@ class MarkdownReportBuilder(BaseReportBuilder):
         section += "|:----|:-------------|:-------|------:|:------:|-------------:|----------:|\n"
         for r in rows:
             align_disp = r['alignment_score'] if r['alignment_score'] is not None else '—'
-            section += f"| {r['ein']} | {r['organization']} | {r['sector']} | {r['years_supported']} | {r['period']} | ${r['total_donated']:,.2f} | {align_disp} |\n"
+            org_name = r['organization'] + " **[FOCUS]**"
+            section += f"| {r['ein']} | {org_name} | {r['sector']} | {r['years_supported']} | {r['period']} | ${r['total_donated']:,.2f} | {align_disp} |\n"
         return section
+
+    def generate_focus_summary_section(self):
+        """Generate focus charities summary section"""
+        data = self.prepare_focus_summary_data()
+        return self.formatter.format_focus_summary_section(data)
 
     def generate_analysis_section(self):
         """Generate strategic analysis section with visualizations"""
@@ -191,11 +204,15 @@ This section provides insights to help you optimize your charitable giving strat
         total_amount = category_totals.sum()
         total_donations = len(self.df)
 
+        # Augment data with focus flags for Great Tables
+        augmented_donors = self.prepare_consistent_donors_data(consistent_donors)
+        augmented_charities = self.prepare_top_charities_data(top_charities)
+
         html_files = None
         if self.config.get("generate_html", False):
             print("Generating Great Tables HTML files...")
             html_files = save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
-                                           consistent_donors, top_charities, total_amount, self.config,
+                                           augmented_donors, augmented_charities, total_amount, self.config,
                                            self.df, one_time, stopped_recurring, self.charity_details,
                                            self.charity_descriptions, self.graph_info, self.charity_evaluations)
             if not html_files:
@@ -234,6 +251,8 @@ This section provides insights to help you optimize your charitable giving strat
                 report += self.generate_stopped_recurring_section(stopped_recurring)
             elif section_id == "focus":
                 report += self.generate_focus_charities_section()
+            elif section_id == "focus_summary":
+                report += self.generate_focus_summary_section()
             elif section_id == "recurring":
                 max_shown = section_options.get("max_shown", 20)
                 report += self.generate_recurring_donations_section(recurring_donations, max_shown)

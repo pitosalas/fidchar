@@ -8,13 +8,14 @@ import pandas as pd
 class BaseReportBuilder:
     """Base class for report builders with shared state and common logic"""
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations):
+    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
         self.df = df
         self.config = config
         self.charity_details = charity_details
         self.charity_descriptions = charity_descriptions
         self.graph_info = graph_info
         self.charity_evaluations = charity_evaluations
+        self.focus_ein_set = focus_ein_set or set()
 
     def extract_charity_details(self, tax_id):
         """Extract common charity details - single implementation"""
@@ -77,7 +78,8 @@ class BaseReportBuilder:
                 'years': row['Years_Supported'],
                 'amount': row['Amount'],
                 'total_ever': row['Total_Ever_Donated'],
-                'last_date': row['Last_Donation_Date']
+                'last_date': row['Last_Donation_Date'],
+                'is_focus': self.is_focus_charity(row['EIN'])
             })
 
         totals = self.calculate_recurring_totals(recurring_donations)
@@ -111,7 +113,33 @@ class BaseReportBuilder:
             'focus_charity': getattr(evaluation, 'focus_charity', False) if evaluation else False
         }
 
+    def prepare_consistent_donors_data(self, consistent_donors):
+        """Augment consistent donors data with focus flags"""
+        if not consistent_donors:
+            return consistent_donors
+
+        augmented = {}
+        for tax_id, donor_info in consistent_donors.items():
+            augmented[tax_id] = {
+                **donor_info,
+                'is_focus': self.is_focus_charity(tax_id)
+            }
+        return augmented
+
+    def prepare_top_charities_data(self, top_charities):
+        """Augment top charities DataFrame with focus flags"""
+        result = top_charities.copy()
+        result['is_focus'] = result.index.map(lambda tax_id: self.is_focus_charity(tax_id))
+        return result
+
     # Focus charities helpers
+    def is_focus_charity(self, ein):
+        """Check if a given EIN is a focus charity"""
+        if not self.charity_evaluations or ein not in self.charity_evaluations:
+            return False
+        evaluation = self.charity_evaluations[ein]
+        return getattr(evaluation, 'focus_charity', False)
+
     def get_focus_charities(self):
         """Return dict of EIN -> evaluation objects flagged as focus charities"""
         if not self.charity_evaluations:
@@ -159,3 +187,38 @@ class BaseReportBuilder:
         # sort by total donated desc
         rows.sort(key=lambda r: r['total_donated'], reverse=True)
         return rows
+
+    def prepare_focus_summary_data(self):
+        """Prepare focus charities summary with last donation date and total donated.
+
+        Uses the focus_ein_set which contains ALL focus charities identified from the dataset,
+        not just those in the top 10 evaluated charities.
+        """
+        if not self.focus_ein_set:
+            return None
+
+        rows = []
+        for ein in self.focus_ein_set:
+            org_df = self.df[self.df['Tax ID'] == ein]
+            if not org_df.empty:
+                org_name = org_df['Organization'].iloc[0]
+                total_donated = org_df['Amount_Numeric'].sum() if 'Amount_Numeric' in org_df.columns else 0.0
+                last_date = org_df['Submit Date'].max() if 'Submit Date' in org_df.columns else None
+
+                rows.append({
+                    'ein': ein,
+                    'organization': org_name,
+                    'last_date': last_date,
+                    'total_donated': total_donated
+                })
+
+        # Sort by total donated descending
+        rows.sort(key=lambda r: r['total_donated'], reverse=True)
+
+        total_focus_donated = sum(r['total_donated'] for r in rows)
+
+        return {
+            'rows': rows,
+            'count': len(rows),
+            'total': total_focus_donated
+        }

@@ -87,8 +87,10 @@ def create_gt_consistent_donors_table(consistent_donors):
     # Convert to DataFrame
     data_rows = []
     for tax_id, donor_info in consistent_donors.items():
+        focus_badge = " [FOCUS]" if donor_info.get('is_focus', False) else ""
+        org_name = donor_info['organization'] + focus_badge
         data_rows.append([
-            donor_info['organization'],
+            org_name,
             tax_id,
             donor_info['sector'],
             donor_info['total_5_year'],
@@ -135,7 +137,8 @@ def create_gt_top_charities_table(top_charities):
     # Convert to DataFrame
     data_rows = []
     for i, (tax_id, data) in enumerate(top_charities.iterrows(), 1):
-        org_name = data["Organization"]
+        focus_badge = " [FOCUS]" if data.get('is_focus', False) else ""
+        org_name = data["Organization"] + focus_badge
         tax_id_display = tax_id if pd.notna(tax_id) else "N/A"
         data_rows.append([i, org_name, data["Amount_Numeric"], tax_id_display])
 
@@ -166,12 +169,24 @@ def create_gt_top_charities_table(top_charities):
     return gt_table
 
 
-def create_gt_recurring_donations_table(recurring_donations, max_shown=20):
+def create_gt_recurring_donations_table(recurring_donations, max_shown=20, charity_evaluations=None):
     """Create recurring donations table using Great Tables"""
     if recurring_donations.empty:
         return None
 
     df = recurring_donations.head(max_shown).copy()
+
+    # Add focus badges to organization names
+    if charity_evaluations:
+        def add_focus_badge(row):
+            ein = row.get('EIN')
+            if ein and ein in charity_evaluations:
+                evaluation = charity_evaluations[ein]
+                if getattr(evaluation, 'focus_charity', False):
+                    return row['Organization'] + " [FOCUS]"
+            return row['Organization']
+        df['Organization'] = df.apply(add_focus_badge, axis=1)
+
     df = df.rename(columns={
         'EIN': 'Tax ID',
         'First_Year': 'First Year',

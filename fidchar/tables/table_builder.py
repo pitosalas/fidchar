@@ -80,7 +80,8 @@ def create_top_charities_table(top_charities):
     """Create top charities ranking table using generic builder"""
     data_rows = []
     for i, (tax_id, data) in enumerate(top_charities.iterrows(), 1):
-        org_name = data["Organization"]
+        focus_badge = " **[FOCUS]**" if data.get('is_focus', False) else ""
+        org_name = data["Organization"] + focus_badge
         tax_id_display = tax_id if pd.notna(tax_id) else "N/A"
         data_rows.append([i, org_name, f"${data['Amount_Numeric']:,.2f}", tax_id_display])
 
@@ -109,7 +110,8 @@ def create_consistent_donors_table(consistent_donors):
     """Create consistent donors table using generic builder"""
     data_rows = []
     for tax_id, donor_info in consistent_donors.items():
-        org_name = donor_info['organization']
+        focus_badge = " **[FOCUS]**" if donor_info.get('is_focus', False) else ""
+        org_name = donor_info['organization'] + focus_badge
         sector = donor_info['sector']
         total_5_year = donor_info['total_5_year']
         avg_per_year = donor_info['average_per_year']

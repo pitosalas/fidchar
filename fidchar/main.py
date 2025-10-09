@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Main orchestration module for charitable donation analysis.
 Coordinates data processing, analysis, visualization, and reporting.
+
+HYDRA VERSION - demonstrates Hydra configuration management
 """
 
 import os
 import shutil
-import yaml
+import hydra
+from omegaconf import DictConfig, OmegaConf
 import core.data_processing as dp
 import core.analysis as an
 import core.visualization as vis
@@ -15,31 +18,35 @@ import reports.charity_evaluator as ev
 import reports.html_report_builder as hrb
 
 
-def load_config():
-    """Load configuration from YAML file"""
-    try:
-        with open("config.yaml", "r") as f:
-            config = yaml.safe_load(f)
-        return config
-    except FileNotFoundError:
-        print("Warning: config.yaml not found, using defaults")
-        return {
-            "input_file": "../data.csv",
-            "generate_html": False,
-            "generate_markdown": False,
-            "generate_textfile": True,
-            "sections": [1, 2, 3, 4, 5, 6, 7],
-            "output_dir": "../output",
-            "charity_navigator": {"app_id": "3069", "app_key": None}
-        }
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def main(cfg: DictConfig) -> None:
+    """Main entry point with Hydra configuration.
 
+    Args:
+        cfg: Hydra configuration object (auto-injected)
 
-def main():
+    Usage examples:
+        # Run with default config
+        python main.py
+
+        # Override config values from CLI
+        python main.py input_file=../data2.csv
+        python main.py generate_html=false generate_markdown=true
+        python main.py sections[2].options.min_years=15
+
+        # Multi-run with different parameters
+        python main.py -m sections[2].options.min_years=5,10,15
+    """
     try:
-        # Load configuration
-        config = load_config()
-        input_file = config["input_file"]
-        output_dir = config["output_dir"]
+        # Hydra changes working directory - get original paths
+        input_file = cfg.input_file
+        output_dir = cfg.output_dir
+
+        # Convert to absolute paths if needed
+        if not os.path.isabs(input_file):
+            input_file = os.path.join(hydra.utils.get_original_cwd(), input_file)
+        if not os.path.isabs(output_dir):
+            output_dir = os.path.join(hydra.utils.get_original_cwd(), output_dir)
 
         # Clean output directory before generating new reports
         if os.path.exists(output_dir):
@@ -63,29 +70,29 @@ def main():
         # Analyze donation patterns
         one_time, stopped_recur = an.analyze_donation_patterns(df)
 
-        # Analyze consistent donors with configured parameters
-        consist_cfg = next((s.get("options", {}) for s in config.get("sections", [])
-                                 if isinstance(s, dict) and s.get("name") == "consistent"), {})
+        # Extract config for consistent donors - Hydra makes this cleaner!
+        consist_cfg = _get_section_options(cfg, "consistent")
         min_years = consist_cfg.get("min_years", 5)
         min_amount = consist_cfg.get("min_amount", 500)
         consist_donors = an.analyze_consistent_donors(df, min_years, min_amount)
 
-        # Analyze recurring donations with configured parameters
-        recur_cfg = next((s.get("options", {}) for s in config.get("sections", [])
-                                if isinstance(s, dict) and s.get("name") == "recurring"), {})
+        # Extract config for recurring donations
+        recur_cfg = _get_section_options(cfg, "recurring")
         sort_by = recur_cfg.get("sort_by", "total")
         min_yrs_recur = recur_cfg.get("min_years", 4)
         recur_donations = an.analyze_recurring_donations(df, sort_by, min_yrs_recur, 4)
 
         # Analyze top charities using config
-        app_id = config["charity_navigator"]["app_id"]
-        app_key = config["charity_navigator"]["app_key"] or os.getenv("CHARITY_NAVIGATOR_APP_KEY")
+        app_id = cfg.charity_navigator.app_id
+        app_key = cfg.charity_navigator.app_key or os.getenv("CHARITY_NAVIGATOR_APP_KEY")
         top_charities, char_details, char_descs, graph_info = dp.analyze_top_charities(
             df, 10, app_id, app_key)
 
-        # Get charity evaluations from charapi
-        charapi_cfg_path = config.get("charapi_config_path")
-        char_evals = ev.get_charity_evaluations(top_charities, charapi_cfg_path)
+        # Get charity evaluations from charapi (includes focus determination)
+        charapi_cfg_path = cfg.get("charapi_config_path")
+        if charapi_cfg_path and not os.path.isabs(charapi_cfg_path):
+            charapi_cfg_path = os.path.join(hydra.utils.get_original_cwd(), charapi_cfg_path)
+        char_evals, focus_ein_set = ev.get_charity_evaluations(top_charities, charapi_cfg_path, df)
 
         # Create analysis visualizations
         print("Creating analysis visualizations...")
@@ -94,35 +101,50 @@ def main():
         # Generate reports
         print("Generating reports...")
 
-        if config.get("generate_html", False):
-            html_bldr = hrb.HTMLReportBuilder(df, config, char_details, char_descs, graph_info, char_evals)
+        # Convert OmegaConf to plain dict for compatibility with existing code
+        config_dict = OmegaConf.to_container(cfg, resolve=True)
+
+        if cfg.generate_html:
+            html_bldr = hrb.HTMLReportBuilder(df, config_dict, char_details, char_descs, graph_info, char_evals, focus_ein_set)
             html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                         stopped_recur, top_charities, consist_donors, recur_donations)
 
-        if config.get("generate_markdown", False):
-            md_bldr = mrb.MarkdownReportBuilder(df, config, char_details, char_descs, graph_info, char_evals)
+        if cfg.generate_markdown:
+            md_bldr = mrb.MarkdownReportBuilder(df, config_dict, char_details, char_descs, graph_info, char_evals, focus_ein_set)
             md_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                             stopped_recur, top_charities, consist_donors, recur_donations)
 
-        if config.get("generate_textfile", False):
-            txt_bldr = trb.TextReportBuilder(df, config, char_details, char_descs, graph_info, char_evals)
+        if cfg.generate_textfile:
+            txt_bldr = trb.TextReportBuilder(df, config_dict, char_details, char_descs, graph_info, char_evals, focus_ein_set)
             txt_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                         stopped_recur, top_charities, consist_donors, recur_donations)
 
         files_generated = []
-        if config.get("generate_html", False):
+        if cfg.generate_html:
             files_generated.append("donation_analysis.html")
-        if config.get("generate_markdown", False):
+        if cfg.generate_markdown:
             files_generated.append("donation_analysis.md")
-        if config.get("generate_textfile", False):
+        if cfg.generate_textfile:
             files_generated.append("donation_analysis.txt")
 
         print(f"Reports generated: {', '.join(files_generated)} in the output directory")
 
-    except FileNotFoundError:
-        print("Error: data.csv file not found")
+    except FileNotFoundError as e:
+        print(f"Error: File not found - {e}")
     except Exception as e:
         print(f"Error processing data: {e}")
+        raise
+
+
+def _get_section_options(cfg: DictConfig, section_name: str) -> dict:
+    """Helper to extract section options from config.
+
+    Cleaner than the old next() approach with list comprehension!
+    """
+    for section in cfg.sections:
+        if isinstance(section, DictConfig) and section.get("name") == section_name:
+            return section.get("options", {})
+    return {}
 
 
 if __name__ == "__main__":
