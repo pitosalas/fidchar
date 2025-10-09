@@ -3,3 +3,4 @@
 - find pure functions that are not tied to anything and move them into a utility python module
 - Funcformatter: "ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f"${x/1000:,.0f}K" if x >= 1000 else f"${x:,.0f}"))"
 - Refactor html section of main.py
+- Review analyze_recurring_donations - its too complicated and incorrect

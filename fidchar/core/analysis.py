@@ -130,9 +130,6 @@ def analyze_recurring_donations(df, sort_by, min_years, stale_years):
     - Adds Period column inferred from Recurring string: 'Annual', 'Semi-Annual', or 'Unknown'.
     - Sorts by total donated (default) or annual amount.
     """
-    if df.empty:
-        return pd.DataFrame()
-
     work = df.copy()
 
     # Derive Year if missing
