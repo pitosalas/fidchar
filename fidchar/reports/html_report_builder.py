@@ -6,9 +6,9 @@ Handles the creation of comprehensive HTML reports with all sections.
 
 import pandas as pd
 from datetime import datetime
-from reports.base_report_builder import BaseReportBuilder
-from reports.formatters import HTMLFormatter
-from tables.great_tables_builder import create_gt_recurring_donations_table, create_gt_donation_history_table
+import reports.base_report_builder as brb
+import reports.formatters as fmt
+import tables.great_tables_builder as gtb
 
 
 def generate_html_header_section(total_donations, total_amount, years_covered,
@@ -117,12 +117,12 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
     </div>"""
 
 
-class HTMLReportBuilder(BaseReportBuilder):
+class HTMLReportBuilder(brb.BaseReportBuilder):
     """HTML report builder with inherited state"""
 
     def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations):
         super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
-        self.formatter = HTMLFormatter()
+        self.formatter = fmt.HTMLFormatter()
 
     def generate_recurring_donations_section(self, recurring_donations, max_shown=20):
         """Generate HTML for recurring donations section using Great Tables"""
@@ -133,7 +133,7 @@ class HTMLReportBuilder(BaseReportBuilder):
         <p>No recurring donations found.</p>
     </div>"""
 
-        gt_table = create_gt_recurring_donations_table(recurring_donations, max_shown)
+        gt_table = gtb.create_gt_recurring_donations_table(recurring_donations, max_shown)
         if gt_table is None:
             return """
     <div class="report-section">
@@ -145,6 +145,61 @@ class HTMLReportBuilder(BaseReportBuilder):
     <div class="report-section">
         {gt_table.as_raw_html()}
     </div>"""
+
+    def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
+                       stopped_recurring, top_charities, consistent_donors, recurring_donations):
+        """Generate complete HTML report by combining all sections"""
+        total_amount = category_totals.sum()
+        total_donations = len(self.df)
+        years_covered = f"{self.df['Year'].min()} - {self.df['Year'].max()}"
+        one_time_total = one_time["Total_Amount"].sum()
+        stopped_total = stopped_recurring["Total_Amount"].sum()
+        consistent_total = sum(donor['total_5_year'] for donor in consistent_donors.values())
+
+        html_content = generate_html_header_section(
+            total_donations, total_amount, years_covered,
+            one_time_total, stopped_total, consistent_total, len(consistent_donors)
+        )
+
+        gt_categories = gtb.create_gt_category_table(category_totals, total_amount)
+        gt_yearly = gtb.create_gt_yearly_table(yearly_amounts, yearly_counts)
+        gt_consistent = gtb.create_gt_consistent_donors_table(consistent_donors)
+        gt_top_charities = gtb.create_gt_top_charities_table(top_charities)
+
+        html_content += generate_table_sections(
+            gt_consistent.as_raw_html(),
+            gt_categories.as_raw_html(),
+            gt_yearly.as_raw_html(),
+            gt_top_charities.as_raw_html(),
+            consistent_total,
+            recurring_donations,
+            self.config
+        )
+
+        html_content += """
+    <div class="report-section">
+        <h2 class="section-title">Detailed Analysis of Top 10 Charities</h2>
+        <p>Complete donation history and trend analysis for each of the top 10 charities:</p>
+"""
+
+        for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
+            org_donations = self.charity_details[tax_id]
+            description = self.charity_descriptions.get(tax_id, "No description available")
+            has_graph = self.graph_info.get(tax_id) is not None
+            evaluation = self.charity_evaluations.get(tax_id)
+
+            html_content += generate_charity_detail_section(
+                i, tax_id, org_donations, description, has_graph, evaluation
+            )
+            html_content += "\n        </div>"
+
+        html_content += """
+    </div>
+</body>
+</html>"""
+
+        with open("../output/donation_analysis.html", "w") as f:
+            f.write(html_content)
 
 
 def generate_table_sections(gt_consistent_html, gt_categories_html,
@@ -227,7 +282,7 @@ def generate_charity_detail_section(i, tax_id, org_donations, description, has_g
     charity_evaluations = {tax_id: evaluation}
 
     builder = HTMLReportBuilder(pd.DataFrame(), {}, charity_details_dict, charity_descriptions, graph_info, charity_evaluations)
-    formatter = HTMLFormatter()
+    formatter = fmt.HTMLFormatter()
 
     data = builder.prepare_charity_detail_data(i, tax_id)
 
@@ -240,7 +295,7 @@ def generate_charity_detail_section(i, tax_id, org_donations, description, has_g
 def generate_donation_history_table(org_donations):
     """Generate scrollable donation history table using Great Tables"""
     org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
-    gt_table = create_gt_donation_history_table(org_donations, org_name)
+    gt_table = gtb.create_gt_donation_history_table(org_donations, org_name)
 
     return f"""
             <h4 style="color: #333; margin-bottom: 10px;">Complete Donation History</h4>

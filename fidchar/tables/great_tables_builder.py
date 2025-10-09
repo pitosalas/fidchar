@@ -266,48 +266,6 @@ def create_gt_donation_history_table(org_donations, org_name):
     return gt_table
 
 
-def create_comprehensive_html_report(category_totals, yearly_amounts, yearly_counts,
-                                   consistent_donors, top_charities, total_amount, df,
-                                   one_time, stopped_recurring, charity_details=None,
-                                   charity_descriptions=None, graph_info=None, charity_evaluations=None, config=None):
-    """Create a comprehensive HTML report with all tables"""
-    from reports.comprehensive_report import (
-        create_comprehensive_html_report as create_report,
-        add_table_sections_to_report, add_detailed_charity_analysis
-    )
-
-    # Create all tables
-    gt_categories = create_gt_category_table(category_totals, total_amount)
-    gt_yearly = create_gt_yearly_table(yearly_amounts, yearly_counts)
-    gt_consistent = create_gt_consistent_donors_table(consistent_donors)
-    gt_top_charities = create_gt_top_charities_table(top_charities)
-
-    # Generate initial HTML structure
-    html_content = create_report(
-        category_totals, yearly_amounts, yearly_counts, consistent_donors,
-        top_charities, total_amount, df, one_time, stopped_recurring
-    )
-
-    # Add table sections
-    consistent_total = sum(donor['total_5_year'] for donor in consistent_donors.values())
-    html_content = add_table_sections_to_report(
-        html_content, gt_consistent, gt_categories, gt_yearly, gt_top_charities, consistent_total, config
-    )
-
-    # Add detailed charity analysis if data is provided
-    if charity_details and charity_descriptions and graph_info:
-        html_content = add_detailed_charity_analysis(
-            html_content, top_charities, charity_details, charity_descriptions, graph_info,
-            charity_evaluations or {}
-        )
-    else:
-        html_content += """
-</body>
-</html>"""
-
-    return html_content
-
-
 def save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
                       consistent_donors, top_charities, total_amount, config, df=None,
                       one_time=None, stopped_recurring=None, charity_details=None,

@@ -6,6 +6,8 @@ Handles all matplotlib/seaborn chart generation with Tufte-style formatting.
 
 import os
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 

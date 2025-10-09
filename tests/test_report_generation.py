@@ -52,7 +52,7 @@ class TestHTMLReportSnapshot:
 
     def test_recurring_donations_html_structure(self, test_donation_data):
         """Test that HTML report structure hasn't changed (now using Great Tables)"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = HTMLReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         html = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -70,7 +70,7 @@ class TestHTMLReportSnapshot:
 
     def test_recurring_donations_html_data_integrity(self, test_donation_data):
         """Test that HTML contains correct data"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = HTMLReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         html = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -88,7 +88,7 @@ class TestHTMLReportSnapshot:
 
     def test_recurring_donations_html_has_rows(self, test_donation_data):
         """Test that HTML has data rows (Great Tables format)"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = HTMLReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         html = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -103,7 +103,7 @@ class TestMarkdownReportSnapshot:
 
     def test_recurring_donations_markdown_structure(self, test_donation_data):
         """Test that Markdown report structure hasn't changed"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = MarkdownReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         markdown = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -117,7 +117,7 @@ class TestMarkdownReportSnapshot:
 
     def test_recurring_donations_markdown_table_format(self, test_donation_data):
         """Test that Markdown table is properly formatted"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = MarkdownReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         markdown = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -145,7 +145,7 @@ class TestTextReportSnapshot:
 
     def test_recurring_donations_text_structure(self, test_donation_data):
         """Test that text report structure hasn't changed"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = TextReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         text = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -158,7 +158,7 @@ class TestTextReportSnapshot:
 
     def test_recurring_donations_text_data_present(self, test_donation_data):
         """Test that text report contains the data"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = TextReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         text = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -176,7 +176,7 @@ class TestReportGeneration:
 
     def test_html_report_generates_valid_output(self, test_donation_data):
         """Test HTML report builder produces valid output"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = HTMLReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         html = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -188,7 +188,7 @@ class TestReportGeneration:
 
     def test_markdown_report_generates_valid_output(self, test_donation_data):
         """Test Markdown report builder produces valid output"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = MarkdownReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         markdown = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
@@ -199,7 +199,7 @@ class TestReportGeneration:
 
     def test_text_report_generates_valid_output(self, test_donation_data):
         """Test Text report builder produces valid output"""
-        recurring = analyze_recurring_donations(test_donation_data, min_years=1)
+        recurring = analyze_recurring_donations(test_donation_data, "total", 1, 4)
         builder = TextReportBuilder(pd.DataFrame(), {}, {}, {}, {}, {})
         text = builder.generate_recurring_donations_section(recurring, max_shown=20)
 
