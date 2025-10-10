@@ -104,31 +104,3 @@ def create_donation_history_table(org_donations):
         data_rows,
         ["Date", "Amount"]
     )
-
-
-def create_consistent_donors_table(consistent_donors):
-    """Create consistent donors table using generic builder"""
-    data_rows = []
-    for tax_id, donor_info in consistent_donors.items():
-        focus_badge = " **[FOCUS]**" if donor_info.get('is_focus', False) else ""
-        org_name = donor_info['organization'] + focus_badge
-        sector = donor_info['sector']
-        total_5_year = donor_info['total_5_year']
-        avg_per_year = donor_info['average_per_year']
-
-        # Format yearly amounts for display
-        yearly_str = ", ".join([f"{year}: ${amount:,.0f}" for year, amount in sorted(donor_info['yearly_amounts'].items())])
-
-        data_rows.append([
-            org_name,
-            tax_id,
-            sector,
-            f"${total_5_year:,.2f}",
-            f"${avg_per_year:,.2f}",
-            yearly_str
-        ])
-
-    return create_table_from_data(
-        data_rows,
-        ["Organization", "Tax ID", "Sector", "5-Year Total", "Average/Year", "Yearly Breakdown"]
-    )

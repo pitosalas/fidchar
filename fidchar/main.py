@@ -70,12 +70,6 @@ def main(cfg: DictConfig) -> None:
         # Analyze donation patterns
         one_time, stopped_recur = an.analyze_donation_patterns(df)
 
-        # Extract config for consistent donors - Hydra makes this cleaner!
-        consist_cfg = _get_section_options(cfg, "consistent")
-        min_years = consist_cfg.get("min_years", 5)
-        min_amount = consist_cfg.get("min_amount", 500)
-        consist_donors = an.analyze_consistent_donors(df, min_years, min_amount)
-
         # Extract config for recurring donations
         recur_cfg = _get_section_options(cfg, "recurring")
         sort_by = recur_cfg.get("sort_by", "total")
@@ -83,10 +77,12 @@ def main(cfg: DictConfig) -> None:
         recur_donations = an.analyze_recurring_donations(df, sort_by, min_yrs_recur, 4)
 
         # Analyze top charities using config
+        top_char_cfg = _get_section_options(cfg, "top_charities")
+        top_n = top_char_cfg.get("count", 10)
         app_id = cfg.charity_navigator.app_id
         app_key = cfg.charity_navigator.app_key or os.getenv("CHARITY_NAVIGATOR_APP_KEY")
         top_charities, char_details, char_descs, graph_info = dp.analyze_top_charities(
-            df, 10, app_id, app_key)
+            df, top_n, app_id, app_key)
 
         # Get charity evaluations from charapi (includes focus determination)
         charapi_cfg_path = cfg.get("charapi_config_path")
@@ -107,17 +103,17 @@ def main(cfg: DictConfig) -> None:
         if cfg.generate_html:
             html_bldr = hrb.HTMLReportBuilder(df, config_dict, char_details, char_descs, graph_info, char_evals, focus_ein_set)
             html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
-                                        stopped_recur, top_charities, consist_donors, recur_donations)
+                                        stopped_recur, top_charities, recur_donations)
 
         if cfg.generate_markdown:
             md_bldr = mrb.MarkdownReportBuilder(df, config_dict, char_details, char_descs, graph_info, char_evals, focus_ein_set)
             md_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
-                                            stopped_recur, top_charities, consist_donors, recur_donations)
+                                            stopped_recur, top_charities, recur_donations)
 
         if cfg.generate_textfile:
             txt_bldr = trb.TextReportBuilder(df, config_dict, char_details, char_descs, graph_info, char_evals, focus_ein_set)
             txt_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
-                                        stopped_recur, top_charities, consist_donors, recur_donations)
+                                        stopped_recur, top_charities, recur_donations)
 
         files_generated = []
         if cfg.generate_html:

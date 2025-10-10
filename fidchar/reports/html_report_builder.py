@@ -8,12 +8,10 @@ import pandas as pd
 from datetime import datetime
 import reports.base_report_builder as brb
 import reports.formatters as fmt
-import tables.great_tables_builder as gtb
 
 
 def generate_html_header_section(total_donations, total_amount, years_covered,
-                                one_time_total, stopped_total, consistent_total,
-                                consistent_count):
+                                one_time_total, stopped_total, top_charities_count):
     """Generate the HTML header and executive summary sections"""
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -104,12 +102,7 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
                 <p>Total: ${stopped_total:,.2f}</p>
             </div>
             <div class="summary-box">
-                <h3>Consistent Donations (5yr)</h3>
-                <p><strong>{consistent_count} organizations</strong></p>
-                <p>Total: ${consistent_total:,.2f}</p>
-            </div>
-            <div class="summary-box">
-                <h3>Top 10 Charities</h3>
+                <h3>Top {top_charities_count} Charities</h3>
                 <p><strong>Major recipients</strong></p>
                 <p>Detailed analysis below</p>
             </div>
@@ -122,10 +115,10 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
     def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
         super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
-        self.formatter = fmt.HTMLFormatter()
+        self.formatter = fmt.HTMLFormatter(builder=self)
 
     def generate_recurring_donations_section(self, recurring_donations, max_shown=20):
-        """Generate HTML for recurring donations section using Great Tables"""
+        """Generate HTML for recurring donations section using HTML tables"""
         if recurring_donations.empty:
             return """
     <div class="report-section">
@@ -133,21 +126,40 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         <p>No recurring donations found.</p>
     </div>"""
 
-        gt_table = gtb.create_gt_recurring_donations_table(recurring_donations, max_shown, self.charity_evaluations)
-        if gt_table is None:
-            return """
-    <div class="report-section">
-        <h2 class="section-title">Recurring Donations</h2>
-        <p>No recurring donations found.</p>
-    </div>"""
+        # Prepare data for formatter
+        rows = []
+        for _, row in recurring_donations.head(max_shown).iterrows():
+            ein = row.get('EIN')
+            is_focus = False
+            if ein and ein in self.charity_evaluations:
+                evaluation = self.charity_evaluations[ein]
+                is_focus = getattr(evaluation, 'focus_charity', False)
 
-        return f"""
-    <div class="report-section">
-        {gt_table.as_raw_html()}
-    </div>"""
+            rows.append({
+                'ein': row.get('EIN', 'N/A'),
+                'organization': row.get('Organization', 'Unknown'),
+                'first_year': row.get('First_Year', 0),
+                'years': row.get('Years_Supported', 0),
+                'amount': row.get('Amount', 0.0),
+                'total_ever': row.get('Total_Ever_Donated', 0.0),
+                'last_date': row.get('Last_Donation_Date'),
+                'is_focus': is_focus
+            })
+
+        data = {
+            'rows': rows,
+            'org_count': len(recurring_donations),
+            'overflow_count': max(0, len(recurring_donations) - max_shown),
+            'totals': {
+                'total_recurring': recurring_donations['Amount'].sum(),
+                'total_ever': recurring_donations['Total_Ever_Donated'].sum()
+            }
+        }
+
+        return self.formatter.format_recurring_section(data)
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
-                       stopped_recurring, top_charities, consistent_donors, recurring_donations):
+                       stopped_recurring, top_charities, recurring_donations):
         """Generate complete HTML report by combining all sections"""
         total_amount = category_totals.sum()
         total_donations = len(self.df)
@@ -156,37 +168,34 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         stopped_total = stopped_recurring["Total_Amount"].sum()
 
         # Augment data with focus flags
-        augmented_donors = self.prepare_consistent_donors_data(consistent_donors)
         augmented_charities = self.prepare_top_charities_data(top_charities)
-
-        consistent_total = sum(donor['total_5_year'] for donor in augmented_donors.values())
+        top_charities_count = len(top_charities)
 
         html_content = generate_html_header_section(
             total_donations, total_amount, years_covered,
-            one_time_total, stopped_total, consistent_total, len(augmented_donors)
+            one_time_total, stopped_total, top_charities_count
         )
 
-        gt_categories = gtb.create_gt_category_table(category_totals, total_amount)
-        gt_yearly = gtb.create_gt_yearly_table(yearly_amounts, yearly_counts)
-        gt_consistent = gtb.create_gt_consistent_donors_table(augmented_donors)
-        gt_top_charities = gtb.create_gt_top_charities_table(augmented_charities)
+        # Generate HTML tables using formatter
+        categories_html = self.formatter.format_category_table(category_totals, total_amount)
+        yearly_html = self.formatter.format_yearly_table(yearly_amounts, yearly_counts)
+        top_charities_html = self.formatter.format_top_charities_table(augmented_charities)
 
         html_content += generate_table_sections(
-            gt_consistent.as_raw_html(),
-            gt_categories.as_raw_html(),
-            gt_yearly.as_raw_html(),
-            gt_top_charities.as_raw_html(),
-            consistent_total,
+            categories_html,
+            yearly_html,
+            top_charities_html,
             recurring_donations,
             self.config,
             self.charity_evaluations,
-            self
+            self,
+            top_charities_count
         )
 
-        html_content += """
+        html_content += f"""
     <div class="report-section">
-        <h2 class="section-title">Detailed Analysis of Top 10 Charities</h2>
-        <p>Complete donation history and trend analysis for each of the top 10 charities:</p>
+        <h2 class="section-title">Detailed Analysis of Top {top_charities_count} Charities</h2>
+        <p>Complete donation history and trend analysis for each of the top {top_charities_count} charities:</p>
 """
 
         for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
@@ -209,9 +218,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             f.write(html_content)
 
 
-def generate_table_sections(gt_consistent_html, gt_categories_html,
-                           gt_yearly_html, gt_top_charities_html, consistent_total,
-                           recurring_donations, config: dict, charity_evaluations=None, builder=None):
+def generate_table_sections(categories_html, yearly_html, top_charities_html,
+                           recurring_donations, config: dict, charity_evaluations=None, builder=None, top_charities_count=10):
     sections = config.get("sections", {})
     html_content = ""
 
@@ -222,15 +230,7 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
             html_content += f"""
     <div class="report-section">
         <h2 class="section-title">Donations by Charitable Sector</h2>
-        {gt_categories_html}
-    </div>"""
-        elif section_id == "consistent":
-            html_content += f"""
-    <div class="report-section">
-        <h2 class="section-title">Consistent Donations (Last 5 Years, $500+ Annually)</h2>
-        <p>Charities that received donations consistently for the last 5 years with at least $500 per year:</p>
-        {gt_consistent_html}
-        <p style="margin-top: 15px;"><strong>Total to consistent donations (5 years):</strong> ${consistent_total:,.2f}</p>
+        {categories_html}
     </div>"""
         elif section_id == "yearly":
             html_content += f"""
@@ -240,13 +240,13 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
             <img src="images/yearly_amounts.png" alt="Yearly Donation Amounts" style="max-width: 100%; height: auto; margin: 10px;">
             <img src="images/yearly_counts.png" alt="Yearly Donation Counts" style="max-width: 100%; height: auto; margin: 10px;">
         </div>
-        {gt_yearly_html}
+        {yearly_html}
     </div>"""
         elif section_id == "top_charities":
             html_content += f"""
     <div class="report-section">
-        <h2 class="section-title">Top 10 Charities by Total Donations</h2>
-        {gt_top_charities_html}
+        <h2 class="section-title">Top {top_charities_count} Charities by Total Donations</h2>
+        {top_charities_html}
     </div>"""
         elif section_id == "focus_summary":
             if builder:
@@ -255,8 +255,8 @@ def generate_table_sections(gt_consistent_html, gt_categories_html,
         elif section_id == "recurring":
             if recurring_donations is not None and not recurring_donations.empty:
                 max_shown = section_options.get("max_shown", 20)
-                builder = HTMLReportBuilder(pd.DataFrame(), config or {}, {}, {}, {}, charity_evaluations or {})
-                html_content += builder.generate_recurring_donations_section(recurring_donations, max_shown)
+                builder_temp = HTMLReportBuilder(pd.DataFrame(), config or {}, {}, {}, {}, charity_evaluations or {})
+                html_content += builder_temp.generate_recurring_donations_section(recurring_donations, max_shown)
         elif section_id == "analysis":
             html_content += """
     <div class="report-section">
@@ -293,13 +293,11 @@ def generate_charity_detail_section(i, tax_id, org_donations, description, has_g
     charity_evaluations = {tax_id: evaluation}
 
     builder = HTMLReportBuilder(pd.DataFrame(), {}, charity_details_dict, charity_descriptions, graph_info, charity_evaluations)
-    formatter = fmt.HTMLFormatter()
-
     data = builder.prepare_charity_detail_data(i, tax_id)
 
     return f"""
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
-            {formatter.format_charity_detail_section(data)}
+            {builder.formatter.format_charity_detail_section(data)}
         </div>"""
 
 

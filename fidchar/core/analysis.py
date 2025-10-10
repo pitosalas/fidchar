@@ -72,52 +72,6 @@ def get_charity_details(df, top_charities):
     return charity_details
 
 
-def analyze_consistent_donors(df, min_years=5, min_amount=500):
-    """Find charities with consistent donations over specified years and minimum amount
-
-    Args:
-        df: DataFrame with donation data
-        min_years: Minimum number of consecutive years required (default: 5)
-        min_amount: Minimum amount per year required (default: $500)
-    """
-    current_year = datetime.now().year
-    year_range = list(range(current_year - min_years + 1, current_year + 1))
-
-    yearly_donations = df.groupby(['Tax ID', 'Year'])['Amount_Numeric'].sum().reset_index()
-
-    consistent_donors = {}
-
-    for tax_id in df['Tax ID'].dropna().unique():
-        charity_yearly = yearly_donations[yearly_donations['Tax ID'] == tax_id]
-
-        qualifying_years = 0
-        yearly_amounts = {}
-
-        for year in year_range:
-            year_data = charity_yearly[charity_yearly['Year'] == year]
-            if not year_data.empty:
-                total_amount = year_data['Amount_Numeric'].sum()
-                if total_amount >= min_amount:
-                    qualifying_years += 1
-                    yearly_amounts[year] = total_amount
-                else:
-                    break
-            else:
-                break
-
-        if qualifying_years == min_years:
-            org_info = df[df['Tax ID'] == tax_id].iloc[0]
-            consistent_donors[tax_id] = {
-                'organization': org_info['Organization'],
-                'sector': org_info['Charitable Sector'],
-                'yearly_amounts': yearly_amounts,
-                'total_5_year': sum(yearly_amounts.values()),
-                'average_per_year': sum(yearly_amounts.values()) / min_years
-            }
-
-    return consistent_donors
-
-
 def determine_focus_charities(df, count, min_years, min_amount):
     """Determine focus charities based on YOUR donation patterns.
 

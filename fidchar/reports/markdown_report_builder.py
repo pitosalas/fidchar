@@ -8,10 +8,8 @@ from datetime import datetime
 from tables.table_builder import (
     create_category_summary_table, create_yearly_analysis_table,
     create_one_time_donations_table, create_stopped_recurring_table,
-    create_top_charities_table,
-    create_consistent_donors_table
+    create_top_charities_table
 )
-from tables.great_tables_builder import save_all_gt_tables
 from reports.base_report_builder import BaseReportBuilder
 from reports.formatters import MarkdownFormatter
 
@@ -21,7 +19,7 @@ class MarkdownReportBuilder(BaseReportBuilder):
 
     def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
         super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
-        self.formatter = MarkdownFormatter()
+        self.formatter = MarkdownFormatter(builder=self)
 
     def generate_report_header(self, total_amount, total_donations):
         """Generate the report header section"""
@@ -38,23 +36,18 @@ class MarkdownReportBuilder(BaseReportBuilder):
 """
         return report
 
-    def generate_category_section(self, category_totals, total_amount, html_files):
+    def generate_category_section(self, category_totals, total_amount):
         """Generate the category analysis section"""
         section = """## Donations by Charitable Sector
 
 """
-
-        if html_files:
-            section += f"[View Category Analysis Table]({html_files['categories']})\n\n"
-        else:
-            category_table = create_category_summary_table(category_totals, total_amount)
-            section += f"{category_table}\n\n"
-
+        category_table = create_category_summary_table(category_totals, total_amount)
+        section += f"{category_table}\n\n"
         section += f"**Total:** ${total_amount:,.2f}\n\n"
 
         return section
 
-    def generate_yearly_section(self, yearly_amounts, yearly_counts, html_files):
+    def generate_yearly_section(self, yearly_amounts, yearly_counts):
         """Generate the yearly analysis section"""
         section = """## Yearly Analysis
 
@@ -63,13 +56,8 @@ class MarkdownReportBuilder(BaseReportBuilder):
 ![Yearly Amounts](images/yearly_amounts.png)
 
 """
-
-        if html_files:
-            section += f"[View Yearly Analysis Table]({html_files['yearly']})\n\n"
-        else:
-            yearly_table = create_yearly_analysis_table(yearly_amounts, yearly_counts)
-            section += f"{yearly_table}\n\n"
-
+        yearly_table = create_yearly_analysis_table(yearly_amounts, yearly_counts)
+        section += f"{yearly_table}\n\n"
         section += "\n### Number of Donations by Year\n\n![Yearly Counts](images/yearly_counts.png)\n\n"
 
         return section
@@ -104,42 +92,15 @@ class MarkdownReportBuilder(BaseReportBuilder):
 
         return section
 
-    def generate_top_charities_section(self, top_charities, html_files):
+    def generate_top_charities_section(self, top_charities):
         """Generate the top charities ranking section"""
         # Augment with focus flags
         augmented_charities = self.prepare_top_charities_data(top_charities)
+        count = len(top_charities)
 
-        section = "\n## Top 10 Charities by Total Donations\n\n"
-
-        if html_files:
-            section += f"[View Top Charities Table]({html_files['top_charities']})\n\n"
-        else:
-            top_charities_table = create_top_charities_table(augmented_charities)
-            section += f"{top_charities_table}\n\n"
-
-        return section
-
-    def generate_consistent_donors_section(self, consistent_donors, html_files):
-        """Generate the consistent donations section"""
-        if not consistent_donors:
-            section = "\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
-            section += "No charities meet the criteria for consistent donations over the last 5 years.\n"
-            return section
-
-        # Augment with focus flags
-        augmented_donors = self.prepare_consistent_donors_data(consistent_donors)
-
-        section = "\n## Consistent Donations (Last 5 Years, $500+ Annually)\n\n"
-        section += f"Charities that received donations consistently for the last 5 years with at least $500 per year ({len(augmented_donors)} organizations):\n\n"
-
-        if html_files:
-            section += f"[View Consistent Donations Table]({html_files['consistent']})\n\n"
-        else:
-            consistent_table = create_consistent_donors_table(augmented_donors)
-            section += f"{consistent_table}\n\n"
-
-        total_consistent = sum(donor['total_5_year'] for donor in augmented_donors.values())
-        section += f"**Total to consistent donors (5 years):** ${total_consistent:,.2f}\n"
+        section = f"\n## Top {count} Charities by Total Donations\n\n"
+        top_charities_table = create_top_charities_table(augmented_charities)
+        section += f"{top_charities_table}\n\n"
 
         return section
 
@@ -199,24 +160,10 @@ This section provides insights to help you optimize your charitable giving strat
         return section
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
-                       stopped_recurring, top_charities, consistent_donors, recurring_donations):
+                       stopped_recurring, top_charities, recurring_donations):
         """Generate complete markdown report by combining all sections"""
         total_amount = category_totals.sum()
         total_donations = len(self.df)
-
-        # Augment data with focus flags for Great Tables
-        augmented_donors = self.prepare_consistent_donors_data(consistent_donors)
-        augmented_charities = self.prepare_top_charities_data(top_charities)
-
-        html_files = None
-        if self.config.get("generate_html", False):
-            print("Generating Great Tables HTML files...")
-            html_files = save_all_gt_tables(category_totals, yearly_amounts, yearly_counts,
-                                           augmented_donors, augmented_charities, total_amount, self.config,
-                                           self.df, one_time, stopped_recurring, self.charity_details,
-                                           self.charity_descriptions, self.graph_info, self.charity_evaluations)
-            if not html_files:
-                raise RuntimeError("Failed to generate Great Tables HTML files")
 
         report = self.generate_report_header(total_amount, total_donations)
 
@@ -239,13 +186,11 @@ This section provides insights to help you optimize your charitable giving strat
             if section_id == "exec":
                 pass
             elif section_id == "sectors":
-                report += self.generate_category_section(category_totals, total_amount, html_files)
-            elif section_id == "consistent":
-                report += self.generate_consistent_donors_section(consistent_donors, html_files)
+                report += self.generate_category_section(category_totals, total_amount)
             elif section_id == "yearly":
-                report += self.generate_yearly_section(yearly_amounts, yearly_counts, html_files)
+                report += self.generate_yearly_section(yearly_amounts, yearly_counts)
             elif section_id == "top_charities":
-                report += self.generate_top_charities_section(top_charities, html_files)
+                report += self.generate_top_charities_section(top_charities)
             elif section_id == "patterns":
                 report += self.generate_one_time_section(one_time)
                 report += self.generate_stopped_recurring_section(stopped_recurring)

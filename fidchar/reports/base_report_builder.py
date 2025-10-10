@@ -113,19 +113,6 @@ class BaseReportBuilder:
             'focus_charity': getattr(evaluation, 'focus_charity', False) if evaluation else False
         }
 
-    def prepare_consistent_donors_data(self, consistent_donors):
-        """Augment consistent donors data with focus flags"""
-        if not consistent_donors:
-            return consistent_donors
-
-        augmented = {}
-        for tax_id, donor_info in consistent_donors.items():
-            augmented[tax_id] = {
-                **donor_info,
-                'is_focus': self.is_focus_charity(tax_id)
-            }
-        return augmented
-
     def prepare_top_charities_data(self, top_charities):
         """Augment top charities DataFrame with focus flags"""
         result = top_charities.copy()
@@ -139,6 +126,46 @@ class BaseReportBuilder:
             return False
         evaluation = self.charity_evaluations[ein]
         return getattr(evaluation, 'focus_charity', False)
+
+    def format_charity_info(self, ein, org_name, total_donated=None):
+        """Generate unified charity info for all formats.
+
+        Returns dict with:
+        - ein: The EIN string
+        - org_name: The organization name
+        - is_focus: Boolean indicating if charity is a focus charity
+        - total_donated: Optional total donated amount
+        - html_org: HTML-formatted org name with focus badge
+        - markdown_org: Markdown-formatted org name with focus badge
+        - text_org: Plain text org name with focus badge
+        """
+        is_focus = self.is_focus_charity(ein)
+
+        # HTML format with styled badge
+        html_badge = " <span style=\"background:#ffd24d; color:#333; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;\">FOCUS</span>"
+        html_org = org_name + (html_badge if is_focus else "")
+
+        # Markdown format with bold badge
+        markdown_badge = " **[FOCUS]**"
+        markdown_org = org_name + (markdown_badge if is_focus else "")
+
+        # Text format with simple badge
+        text_badge = " [FOCUS]"
+        text_org = org_name + (text_badge if is_focus else "")
+
+        result = {
+            'ein': ein,
+            'org_name': org_name,
+            'is_focus': is_focus,
+            'html_org': html_org,
+            'markdown_org': markdown_org,
+            'text_org': text_org
+        }
+
+        if total_donated is not None:
+            result['total_donated'] = total_donated
+
+        return result
 
     def get_focus_charities(self):
         """Return dict of EIN -> evaluation objects flagged as focus charities"""

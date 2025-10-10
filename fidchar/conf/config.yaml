@@ -1,5 +1,16 @@
 # Charitable Donation Analysis Configuration
 
+# Hydra configuration
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
 # Input data file path
 input_file: "../data.csv"
 
@@ -12,13 +23,12 @@ generate_textfile: true   # A simple text file
 # Available sections:
 # - exec: Executive Summary
 # - sectors: Donation Analysis by Charitable Sector
-# - consistent: Consistent Donations Analysis
 # - yearly: Yearly Donation Analysis
-# - top_charities: Top 10 Charities by Total Donations
+# - top_charities: Top N Charities by Total Donations
 # - focus_summary: Focus Charities Summary (EIN, name, total donated, last donation date)
 # - patterns: One-Time vs Recurring Donation Patterns
 # - recurring: Recurring Donations List
-# - detailed: Detailed Analysis of Top 10 Charities
+# - detailed: Detailed Analysis of Top N Charities
 # - analysis: Strategic Analysis Visualizations
 
 sections:
@@ -30,12 +40,6 @@ sections:
     # options:
     #   show_percentages: true
 
-  - name: consistent
-    # Consistent Donations Analysis
-    options:
-      min_years: 10
-      min_amount: 1000
-
   - name: yearly
     # Yearly Donation Analysis
     # options:
@@ -43,8 +47,8 @@ sections:
 
   - name: top_charities
     # Top 10 Charities by Total Donations
-    # options:
-    #   count: 10
+    options:
+      count: 15
 
   - name: focus_summary
     # Focus Charities Summary - simple list with last donation and total
