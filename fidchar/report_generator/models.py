@@ -31,3 +31,21 @@ class ReportTable:
             source=source,
             focus_flags=focus_flags,
         )
+
+
+@dataclass
+class CardSection:
+    """A section within a card - can be text, key-value pairs, list, table, etc."""
+    section_type: str  # "text", "key_value", "list", "progress_bar", "table"
+    content: dict | list | str
+    title: str | None = None
+
+
+@dataclass
+class ReportCard:
+    """Represents a Bootstrap card component - completely general and reusable"""
+    title: str
+    sections: list[CardSection] = field(default_factory=list)
+    badge: str | None = None
+    image_url: str | None = None
+    image_position: str = "right"  # "right", "left", "top", "bottom"

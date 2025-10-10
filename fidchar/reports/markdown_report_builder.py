@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-"""Report builder module for charitable donation analysis.
+"""Markdown report builder module - NEW VERSION using report_generator.
 
-Orchestrates the creation of the complete markdown report.
+Generates markdown reports using MarkdownRenderer from report_generator.
 """
 
+import pandas as pd
 from datetime import datetime
-from tables.table_builder import (
-    create_category_summary_table, create_yearly_analysis_table,
-    create_one_time_donations_table, create_stopped_recurring_table,
-    create_top_charities_table
-)
 from reports.base_report_builder import BaseReportBuilder
-from reports.formatters import MarkdownFormatter
+from report_generator.models import ReportTable, ReportCard, CardSection
+from report_generator.renderers import MarkdownRenderer, MarkdownCardRenderer
 
 
 class MarkdownReportBuilder(BaseReportBuilder):
@@ -19,7 +16,8 @@ class MarkdownReportBuilder(BaseReportBuilder):
 
     def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
         super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
-        self.formatter = MarkdownFormatter(builder=self)
+        self.table_renderer = MarkdownRenderer()
+        self.card_renderer = MarkdownCardRenderer()
 
     def generate_report_header(self, total_amount, total_donations):
         """Generate the report header section"""
@@ -36,80 +34,151 @@ class MarkdownReportBuilder(BaseReportBuilder):
 """
         return report
 
-    def generate_category_section(self, category_totals, total_amount):
-        """Generate the category analysis section"""
-        section = """## Donations by Charitable Sector
+    def generate_category_table(self, category_totals, total_amount):
+        """Generate category totals table using MarkdownRenderer"""
+        df = category_totals.reset_index()
+        df.columns = ['Charitable Sector', 'Total Amount']
+        df['Percentage'] = (df['Total Amount'] / total_amount * 100).apply(lambda x: f"{x:.1f}%")
+        df['Total Amount'] = df['Total Amount'].apply(lambda x: f"${x:,.0f}")
 
-"""
-        category_table = create_category_summary_table(category_totals, total_amount)
-        section += f"{category_table}\n\n"
-        section += f"**Total:** ${total_amount:,.2f}\n\n"
+        table = ReportTable.from_dataframe(
+            df,
+            title="Donations by Charitable Sector"
+        )
+        return self.table_renderer.render(table)
 
-        return section
+    def generate_yearly_table(self, yearly_amounts, yearly_counts):
+        """Generate yearly analysis table using MarkdownRenderer"""
+        df = pd.DataFrame({
+            'Year': sorted(yearly_amounts.index),
+            'Total Amount': [f"${yearly_amounts[year]:,.0f}" for year in sorted(yearly_amounts.index)],
+            'Number of Donations': [yearly_counts[year] for year in sorted(yearly_amounts.index)]
+        })
 
-    def generate_yearly_section(self, yearly_amounts, yearly_counts):
-        """Generate the yearly analysis section"""
-        section = """## Yearly Analysis
+        table = ReportTable.from_dataframe(
+            df,
+            title="Yearly Analysis"
+        )
+        return self.table_renderer.render(table)
 
-### Total Donation Amounts by Year
+    def generate_top_charities_table(self, top_charities):
+        """Generate top charities table using MarkdownRenderer"""
+        augmented = self.prepare_top_charities_data(top_charities)
+        df_for_table = augmented.reset_index()[['Organization', 'Amount_Numeric', 'is_focus']]
+        df_for_table['Amount_Numeric'] = df_for_table['Amount_Numeric'].apply(lambda x: f"${x:,.0f}")
+        df_for_table.columns = ['Organization', 'Total Amount', 'FOCUS']
 
-![Yearly Amounts](images/yearly_amounts.png)
+        table = ReportTable.from_dataframe(
+            df_for_table,
+            title=f"Top {len(top_charities)} Charities by Total Donations",
+            focus_column='FOCUS'
+        )
+        return self.table_renderer.render(table)
 
-"""
-        yearly_table = create_yearly_analysis_table(yearly_amounts, yearly_counts)
-        section += f"{yearly_table}\n\n"
-        section += "\n### Number of Donations by Year\n\n![Yearly Counts](images/yearly_counts.png)\n\n"
+    def generate_one_time_table(self, one_time, max_shown=20):
+        """Generate one-time donations table using MarkdownRenderer"""
+        df = one_time.head(max_shown).reset_index()[['Organization_Name', 'Total_Amount', 'First_Date']]
+        df['Total_Amount'] = df['Total_Amount'].apply(lambda x: f"${x:,.2f}")
+        df['First_Date'] = df['First_Date'].dt.strftime("%m/%d/%Y")
+        df.columns = ['Organization', 'Amount', 'Date']
 
-        return section
+        table = ReportTable.from_dataframe(
+            df,
+            title=f"One-Time Donations ({len(one_time)} organizations)"
+        )
+        return self.table_renderer.render(table)
 
-    def generate_one_time_section(self, one_time):
-        """Generate the one-time donations section"""
-        one_time_table = create_one_time_donations_table(one_time)
-        one_time_total = one_time["Total_Amount"].sum()
-        section = "\n## One-Time Donations\n\n"
-        section += f"Organizations that received a single donation ({len(one_time)} organizations):\n\n"
-        section += one_time_table
+    def generate_stopped_table(self, stopped_recurring, max_shown=15):
+        """Generate stopped recurring table using MarkdownRenderer"""
+        df = stopped_recurring.head(max_shown).reset_index()[
+            ['Organization_Name', 'Total_Amount', 'Donation_Count', 'First_Date', 'Last_Date']
+        ]
+        df['Total_Amount'] = df['Total_Amount'].apply(lambda x: f"${x:,.2f}")
+        df['First_Date'] = df['First_Date'].dt.strftime("%m/%d/%Y")
+        df['Last_Date'] = df['Last_Date'].dt.strftime("%m/%d/%Y")
+        df.columns = ['Organization', 'Total Amount', 'Donations', 'First Date', 'Last Date']
 
-        if len(one_time) > 20:
-            section += f"\n*... and {len(one_time) - 20} more organizations*\n"
+        table = ReportTable.from_dataframe(
+            df,
+            title=f"Stopped Recurring Donations ({len(stopped_recurring)} organizations)"
+        )
+        return self.table_renderer.render(table)
 
-        section += f"\n**One-time donations total:** ${one_time_total:,.2f}\n"
+    def generate_charity_card(self, i, tax_id):
+        """Generate charity detail as markdown card using MarkdownCardRenderer"""
+        org_donations = self.charity_details[tax_id]
+        description = self.charity_descriptions.get(tax_id, "No description available")
+        has_graph = self.graph_info.get(tax_id) is not None
+        evaluation = self.charity_evaluations.get(tax_id)
 
-        return section
+        org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
+        sector = org_donations["Charitable Sector"].iloc[0] if not org_donations.empty else "Unknown"
+        total_donated = org_donations["Amount_Numeric"].sum()
+        donation_count = len(org_donations)
 
-    def generate_stopped_recurring_section(self, stopped_recurring):
-        """Generate the stopped recurring donations section"""
-        stopped_table = create_stopped_recurring_table(stopped_recurring)
-        stopped_total = stopped_recurring["Total_Amount"].sum()
-        section = "\n## Stopped Recurring Donations\n\n"
-        section += f"Organizations with recurring donations that appear to have stopped ({len(stopped_recurring)} organizations):\n\n"
-        section += stopped_table
+        is_focus = tax_id in self.focus_ein_set if self.focus_ein_set else False
 
-        if len(stopped_recurring) > 15:
-            section += f"\n*... and {len(stopped_recurring) - 15} more organizations*\n"
+        sections = [
+            CardSection(
+                section_type="key_value",
+                content={
+                    "Tax ID": tax_id,
+                    "Sector": sector,
+                    "Total Donated": f"${total_donated:,.2f}",
+                    "Number of Donations": str(donation_count)
+                }
+            )
+        ]
 
-        section += f"\n**Stopped recurring donations total:** ${stopped_total:,.2f}\n"
+        if description and description != "No description available":
+            sections.append(CardSection(
+                section_type="text",
+                content=description
+            ))
 
-        return section
+        if evaluation:
+            sections.append(CardSection(
+                section_type="list",
+                title="Charity Evaluation:",
+                content=[
+                    f"⭐ Outstanding: {evaluation.outstanding_count} metrics",
+                    f"✓ Acceptable: {evaluation.acceptable_count} metrics",
+                    f"⚠ Unacceptable: {evaluation.unacceptable_count} metrics"
+                ]
+            ))
 
-    def generate_top_charities_section(self, top_charities):
-        """Generate the top charities ranking section"""
-        # Augment with focus flags
-        augmented_charities = self.prepare_top_charities_data(top_charities)
-        count = len(top_charities)
+            if evaluation.alignment_score is not None:
+                sections.append(CardSection(
+                    section_type="progress_bar",
+                    title="Alignment with Your Goals",
+                    content={
+                        "label": f"Alignment Score: {evaluation.alignment_score}/100",
+                        "value": evaluation.alignment_score,
+                        "max": 100,
+                        "color": "success"
+                    }
+                ))
 
-        section = f"\n## Top {count} Charities by Total Donations\n\n"
-        top_charities_table = create_top_charities_table(augmented_charities)
-        section += f"{top_charities_table}\n\n"
+            if evaluation.summary:
+                sections.append(CardSection(
+                    section_type="text",
+                    content=evaluation.summary
+                ))
 
-        return section
+        graph_filename = f"images/charity_{i:02d}_{tax_id.replace('-', '')}.png" if has_graph else None
 
-    def generate_charity_detail_section(self, i, tax_id):
-        """Generate detailed section for a single charity"""
-        data = self.prepare_charity_detail_data(i, tax_id)
-        return self.formatter.format_charity_detail_section(data)
+        card = ReportCard(
+            title=f"{i}. {org_name}",
+            badge="FOCUS" if is_focus else None,
+            sections=sections,
+            image_url=graph_filename,
+            image_position="bottom"
+        )
+
+        return self.card_renderer.render(card)
 
     def generate_focus_charities_section(self):
+        """Generate focus charities table section"""
         rows = self.build_focus_rows()
         if not rows:
             return "\n## Focus Charities\n\nNo focus charities identified.\n"
@@ -123,9 +192,38 @@ class MarkdownReportBuilder(BaseReportBuilder):
         return section
 
     def generate_focus_summary_section(self):
-        """Generate focus charities summary section"""
+        """Generate focus charities summary section using MarkdownRenderer"""
         data = self.prepare_focus_summary_data()
-        return self.formatter.format_focus_summary_section(data)
+        if data is None:
+            return "\n## Focus Charities Summary\n\nNo focus charities identified.\n\n"
+
+        section = f"""## Focus Charities Summary
+
+{data['count']} charities identified as strategic focus based on your donation patterns:
+
+"""
+
+        # Build DataFrame from rows
+        df_data = []
+        for row in data['rows']:
+            last_date_str = row['last_date'].strftime('%Y-%m-%d') if row['last_date'] else 'N/A'
+            df_data.append({
+                'EIN': row['ein'],
+                'Organization': row['organization'],
+                'Total Donated': f"${row['total_donated']:,.2f}",
+                'Last Donation': last_date_str
+            })
+
+        df = pd.DataFrame(df_data)
+
+        table = ReportTable.from_dataframe(
+            df,
+            title=None  # Title already in section header
+        )
+        section += self.table_renderer.render(table)
+        section += f"\n**Total donated to focus charities:** ${data['total']:,.2f}\n\n"
+
+        return section
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
                        stopped_recurring, top_charities):
@@ -154,14 +252,46 @@ class MarkdownReportBuilder(BaseReportBuilder):
             if section_id == "exec":
                 pass
             elif section_id == "sectors":
-                report += self.generate_category_section(category_totals, total_amount)
+                report += "## Donations by Charitable Sector\n\n"
+                report += self.generate_category_table(category_totals, total_amount)
+                report += f"\n\n**Total:** ${total_amount:,.2f}\n\n"
             elif section_id == "yearly":
-                report += self.generate_yearly_section(yearly_amounts, yearly_counts)
+                report += """## Yearly Analysis
+
+### Total Donation Amounts by Year
+
+![Yearly Amounts](images/yearly_amounts.png)
+
+"""
+                report += self.generate_yearly_table(yearly_amounts, yearly_counts)
+                report += "\n\n### Number of Donations by Year\n\n![Yearly Counts](images/yearly_counts.png)\n\n"
             elif section_id == "top_charities":
-                report += self.generate_top_charities_section(top_charities)
+                count = len(top_charities)
+                report += f"\n## Top {count} Charities by Total Donations\n\n"
+                report += self.generate_top_charities_table(top_charities)
+                report += "\n\n"
             elif section_id == "patterns":
-                report += self.generate_one_time_section(one_time)
-                report += self.generate_stopped_recurring_section(stopped_recurring)
+                one_time_total = one_time["Total_Amount"].sum()
+                stopped_total = stopped_recurring["Total_Amount"].sum()
+
+                report += "\n## One-Time Donations\n\n"
+                report += f"Organizations that received a single donation ({len(one_time)} organizations):\n\n"
+                report += self.generate_one_time_table(one_time)
+
+                if len(one_time) > 20:
+                    report += f"\n*... and {len(one_time) - 20} more organizations*\n"
+
+                report += f"\n**One-time donations total:** ${one_time_total:,.2f}\n"
+
+                report += "\n## Stopped Recurring Donations\n\n"
+                report += f"Organizations with recurring donations that appear to have stopped ({len(stopped_recurring)} organizations):\n\n"
+                report += self.generate_stopped_table(stopped_recurring)
+
+                if len(stopped_recurring) > 15:
+                    report += f"\n*... and {len(stopped_recurring) - 15} more organizations*\n"
+
+                report += f"\n**Stopped recurring donations total:** ${stopped_total:,.2f}\n"
+
             elif section_id == "focus":
                 report += self.generate_focus_charities_section()
             elif section_id == "focus_summary":
@@ -172,7 +302,7 @@ class MarkdownReportBuilder(BaseReportBuilder):
         report += "\n### Detailed Donation History\n\n"
 
         for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
-            report += self.generate_charity_detail_section(i, tax_id)
+            report += self.generate_charity_card(i, tax_id)
 
         with open("../output/donation_analysis.md", "w") as f:
             f.write(report)
