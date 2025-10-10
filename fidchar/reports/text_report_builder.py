@@ -109,11 +109,6 @@ Organizations with recurring donations that appear to have stopped ({len(stopped
 """
         return section
 
-    def generate_recurring_donations_section(self, recurring_donations, max_shown=20):
-        """Generate the recurring donations section with inline table"""
-        data = self.prepare_recurring_data(recurring_donations, max_shown)
-        return self.formatter.format_recurring_section(data)
-
     def generate_charity_detail_section(self, i, tax_id):
         """Generate detailed section for a single charity in text format"""
         data = self.prepare_charity_detail_data(i, tax_id)
@@ -125,7 +120,7 @@ Organizations with recurring donations that appear to have stopped ({len(stopped
         return self.formatter.format_focus_summary_section(data)
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
-                       stopped_recurring, top_charities, recurring_donations):
+                       stopped_recurring, top_charities):
         """Generate complete text report by combining all sections"""
         total_amount = category_totals.sum()
         total_donations = len(self.df)
@@ -147,9 +142,6 @@ Organizations with recurring donations that appear to have stopped ({len(stopped
                 report += self.generate_stopped_recurring_section(stopped_recurring)
             elif section_id == "focus_summary":
                 report += self.generate_focus_summary_section()
-            elif section_id == "recurring":
-                max_shown = section_options.get("max_shown", 20)
-                report += self.generate_recurring_donations_section(recurring_donations, max_shown)
             elif section_id == "detailed":
                 pass
 

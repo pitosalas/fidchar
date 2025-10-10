@@ -104,11 +104,6 @@ class MarkdownReportBuilder(BaseReportBuilder):
 
         return section
 
-    def generate_recurring_donations_section(self, recurring_donations, max_shown=20):
-        """Generate the recurring donations section"""
-        data = self.prepare_recurring_data(recurring_donations, max_shown)
-        return self.formatter.format_recurring_section(data)
-
     def generate_charity_detail_section(self, i, tax_id):
         """Generate detailed section for a single charity"""
         data = self.prepare_charity_detail_data(i, tax_id)
@@ -132,35 +127,8 @@ class MarkdownReportBuilder(BaseReportBuilder):
         data = self.prepare_focus_summary_data()
         return self.formatter.format_focus_summary_section(data)
 
-    def generate_analysis_section(self):
-        """Generate strategic analysis section with visualizations"""
-        section = """
-<div style="page-break-before: always;"></div>
-
-## Strategic Analysis
-
-This section provides insights to help you optimize your charitable giving strategy.
-
-### Efficiency Frontier Analysis
-
-![Efficiency Frontier](images/efficiency_frontier.png)
-
-**How to read this chart:**
-- **X-axis (Evaluation Score)**: Outstanding×2 + Acceptable - Unacceptable (can be negative)
-- **Y-axis (Total Donated)**: How much you've given to them
-- Higher scores (right side) indicate better-performing charities
-- Reference lines at 0 and 5 show score thresholds
-
-**Key Insights:**
-- **Ideal**: Most of your giving should be to charities with higher scores (≥5)
-- **Consider**: Are you giving large amounts to lower-rated charities (score <0)?
-- **Opportunity**: Are there highly-rated charities you could support more?
-
-"""
-        return section
-
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
-                       stopped_recurring, top_charities, recurring_donations):
+                       stopped_recurring, top_charities):
         """Generate complete markdown report by combining all sections"""
         total_amount = category_totals.sum()
         total_donations = len(self.df)
@@ -198,22 +166,13 @@ This section provides insights to help you optimize your charitable giving strat
                 report += self.generate_focus_charities_section()
             elif section_id == "focus_summary":
                 report += self.generate_focus_summary_section()
-            elif section_id == "recurring":
-                max_shown = section_options.get("max_shown", 20)
-                report += self.generate_recurring_donations_section(recurring_donations, max_shown)
             elif section_id == "detailed":
                 pass
-            elif section_id == "analysis":
-                pass  # Analysis handled separately after detailed section
 
         report += "\n### Detailed Donation History\n\n"
 
         for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
             report += self.generate_charity_detail_section(i, tax_id)
-
-        # Add analysis section if requested
-        if any(s.get("name") == "analysis" if isinstance(s, dict) else s == "analysis" for s in sections):
-            report += self.generate_analysis_section()
 
         with open("../output/donation_analysis.md", "w") as f:
             f.write(report)

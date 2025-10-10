@@ -117,49 +117,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
         self.formatter = fmt.HTMLFormatter(builder=self)
 
-    def generate_recurring_donations_section(self, recurring_donations, max_shown=20):
-        """Generate HTML for recurring donations section using HTML tables"""
-        if recurring_donations.empty:
-            return """
-    <div class="report-section">
-        <h2 class="section-title">Recurring Donations</h2>
-        <p>No recurring donations found.</p>
-    </div>"""
-
-        # Prepare data for formatter
-        rows = []
-        for _, row in recurring_donations.head(max_shown).iterrows():
-            ein = row.get('EIN')
-            is_focus = False
-            if ein and ein in self.charity_evaluations:
-                evaluation = self.charity_evaluations[ein]
-                is_focus = getattr(evaluation, 'focus_charity', False)
-
-            rows.append({
-                'ein': row.get('EIN', 'N/A'),
-                'organization': row.get('Organization', 'Unknown'),
-                'first_year': row.get('First_Year', 0),
-                'years': row.get('Years_Supported', 0),
-                'amount': row.get('Amount', 0.0),
-                'total_ever': row.get('Total_Ever_Donated', 0.0),
-                'last_date': row.get('Last_Donation_Date'),
-                'is_focus': is_focus
-            })
-
-        data = {
-            'rows': rows,
-            'org_count': len(recurring_donations),
-            'overflow_count': max(0, len(recurring_donations) - max_shown),
-            'totals': {
-                'total_recurring': recurring_donations['Amount'].sum(),
-                'total_ever': recurring_donations['Total_Ever_Donated'].sum()
-            }
-        }
-
-        return self.formatter.format_recurring_section(data)
-
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
-                       stopped_recurring, top_charities, recurring_donations):
+                       stopped_recurring, top_charities):
         """Generate complete HTML report by combining all sections"""
         total_amount = category_totals.sum()
         total_donations = len(self.df)
@@ -185,7 +144,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             categories_html,
             yearly_html,
             top_charities_html,
-            recurring_donations,
+            one_time,
+            stopped_recurring,
             self.config,
             self.charity_evaluations,
             self,
@@ -219,7 +179,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
 
 def generate_table_sections(categories_html, yearly_html, top_charities_html,
-                           recurring_donations, config: dict, charity_evaluations=None, builder=None, top_charities_count=10):
+                           one_time, stopped_recurring, config: dict,
+                           charity_evaluations=None, builder=None, top_charities_count=10):
     sections = config.get("sections", {})
     html_content = ""
 
@@ -248,39 +209,44 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         <h2 class="section-title">Top {top_charities_count} Charities by Total Donations</h2>
         {top_charities_html}
     </div>"""
+        elif section_id == "patterns":
+            if builder:
+                one_time_table = builder.formatter.format_one_time_table(one_time)
+                one_time_total = one_time["Total_Amount"].sum()
+                one_time_count = len(one_time)
+                overflow_one_time = max(0, one_time_count - 20)
+
+                stopped_table = builder.formatter.format_stopped_recurring_table(stopped_recurring)
+                stopped_total = stopped_recurring["Total_Amount"].sum()
+                stopped_count = len(stopped_recurring)
+                overflow_stopped = max(0, stopped_count - 15)
+
+                html_content += f"""
+    <div class="report-section">
+        <h2 class="section-title">One-Time Donations</h2>
+        <p>Organizations that received a single donation ({one_time_count} organizations):</p>
+        {one_time_table}"""
+                if overflow_one_time > 0:
+                    html_content += f"""
+        <p><em>... and {overflow_one_time} more organizations</em></p>"""
+                html_content += f"""
+        <p style="margin-top: 15px;"><strong>One-time donations total:</strong> ${one_time_total:,.2f}</p>
+    </div>
+
+    <div class="report-section">
+        <h2 class="section-title">Stopped Recurring Donations</h2>
+        <p>Organizations with recurring donations that appear to have stopped ({stopped_count} organizations):</p>
+        {stopped_table}"""
+                if overflow_stopped > 0:
+                    html_content += f"""
+        <p><em>... and {overflow_stopped} more organizations</em></p>"""
+                html_content += f"""
+        <p style="margin-top: 15px;"><strong>Stopped recurring donations total:</strong> ${stopped_total:,.2f}</p>
+    </div>"""
         elif section_id == "focus_summary":
             if builder:
                 data = builder.prepare_focus_summary_data()
                 html_content += builder.formatter.format_focus_summary_section(data)
-        elif section_id == "recurring":
-            if recurring_donations is not None and not recurring_donations.empty:
-                max_shown = section_options.get("max_shown", 20)
-                builder_temp = HTMLReportBuilder(pd.DataFrame(), config or {}, {}, {}, {}, charity_evaluations or {})
-                html_content += builder_temp.generate_recurring_donations_section(recurring_donations, max_shown)
-        elif section_id == "analysis":
-            html_content += """
-    <div class="report-section">
-        <h2 class="section-title">Strategic Analysis</h2>
-        <p>Insights to help you optimize your charitable giving strategy.</p>
-
-        <h3>Efficiency Frontier Analysis</h3>
-        <img src="images/efficiency_frontier.png" alt="Efficiency Frontier" style="max-width: 100%; height: auto; margin: 20px 0;">
-
-        <h4>How to read this chart:</h4>
-        <ul>
-            <li><strong>X-axis (Evaluation Score):</strong> Outstanding×2 + Acceptable - Unacceptable (can be negative)</li>
-            <li><strong>Y-axis (Total Donated):</strong> How much you've given to them</li>
-            <li>Higher scores (right side) indicate better-performing charities</li>
-            <li>Reference lines at 0 and 5 show score thresholds</li>
-        </ul>
-
-        <h4>Key Insights:</h4>
-        <ul>
-            <li><strong>Ideal:</strong> Most of your giving should be to charities with higher scores (≥5)</li>
-            <li><strong>Consider:</strong> Are you giving large amounts to lower-rated charities (score <0)?</li>
-            <li><strong>Opportunity:</strong> Are there highly-rated charities you could support more?</li>
-        </ul>
-    </div>"""
 
     return html_content
 

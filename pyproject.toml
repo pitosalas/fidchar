@@ -12,6 +12,7 @@ dependencies = [
     "pdfkit>=1.0.0",
     "pytest>=8.4.2",
     "pyyaml>=6.0.3",
+    "report-creator>=1.1.0",
     "requests>=2.32.5",
     "seaborn>=0.13.2",
     "selenium>=4.35.0",

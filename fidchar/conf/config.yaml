@@ -27,9 +27,7 @@ generate_textfile: true   # A simple text file
 # - top_charities: Top N Charities by Total Donations
 # - focus_summary: Focus Charities Summary (EIN, name, total donated, last donation date)
 # - patterns: One-Time vs Recurring Donation Patterns
-# - recurring: Recurring Donations List
 # - detailed: Detailed Analysis of Top N Charities
-# - analysis: Strategic Analysis Visualizations
 
 sections:
   - name: exec
@@ -53,13 +51,6 @@ sections:
   - name: focus_summary
     # Focus Charities Summary - simple list with last donation and total
 
-  - name: recurring
-    # Recurring Donations List
-    options:
-      max_shown: 90
-      sort_by: "total"  # "total" or "annual"
-      min_years: 4  # Minimum years of donations to be considered recurring
-
   - name: patterns
     # One-Time vs Recurring Donation Patterns
     # options:
@@ -69,12 +60,6 @@ sections:
     # Detailed Analysis of Top 10 Charities
     # options:
     #   include_descriptions: true
-
-  - name: analysis
-    # Strategic Analysis Visualizations
-    # options:
-    #   include_impact_commitment: true
-    #   include_efficiency_frontier: true
 
 # Output directory
 output_dir: "../output"

@@ -12,11 +12,6 @@ class ReportFormatter(ABC):
     """Abstract base formatter - defines interface"""
 
     @abstractmethod
-    def format_recurring_section(self, data):
-        """Format recurring donations section with prepared data"""
-        pass
-
-    @abstractmethod
     def format_charity_detail_section(self, data):
         """Format charity detail section with prepared data"""
         pass
@@ -76,63 +71,6 @@ class HTMLFormatter(ReportFormatter):
 
         return f"""            <tr style="background: {bg_color}; border-bottom: 1px solid #ddd;">
                 {cell_html}</tr>"""
-
-    def format_recurring_section(self, data):
-        """Format recurring donations as HTML table"""
-        if data is None:
-            return """
-    <div class="report-section">
-        <h2 class="section-title">Recurring Donations</h2>
-        <p>No recurring donations found.</p>
-    </div>"""
-
-        table_html = """
-    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <thead>
-            <tr style="background: #f8f9fa; border-bottom: 2px solid #333;">
-                <th style="padding: 10px; text-align: left;">EIN</th>
-                <th style="padding: 10px; text-align: left;">Organization</th>
-                <th style="padding: 10px; text-align: center;">First Year</th>
-                <th style="padding: 10px; text-align: center;">Years</th>
-                <th style="padding: 10px; text-align: right;">Amount</th>
-                <th style="padding: 10px; text-align: right;">Total Ever Donated</th>
-                <th style="padding: 10px; text-align: left;">Last Donation</th>
-            </tr>
-        </thead>
-        <tbody>"""
-
-        for i, row in enumerate(data['rows']):
-            charity_info = self.builder.format_charity_info(row['ein'], row['organization'])
-            bg_color = "#f8f9fa" if i % 2 == 0 else "white"
-            table_html += f"""
-            <tr style="background: {bg_color}; border-bottom: 1px solid #ddd;">
-                <td style="padding: 8px;">{row['ein']}</td>
-                <td style="padding: 8px;">{charity_info['html_org']}</td>
-                <td style="padding: 8px; text-align: center;">{row['first_year']}</td>
-                <td style="padding: 8px; text-align: center;">{row['years']}</td>
-                <td style="padding: 8px; text-align: right;">${row['amount']:,.2f}</td>
-                <td style="padding: 8px; text-align: right;">${row['total_ever']:,.2f}</td>
-                <td style="padding: 8px;">{row['last_date'].strftime('%Y-%m-%d')}</td>
-            </tr>"""
-
-        table_html += """
-        </tbody>
-    </table>"""
-
-        more_text = ""
-        if data['overflow_count'] > 0:
-            more_text = f"<p><em>... and {data['overflow_count']} more organizations</em></p>"
-
-        totals = data['totals']
-        return f"""
-    <div class="report-section">
-        <h2 class="section-title">Recurring Donations</h2>
-        <p>Organizations with recurring donation schedules ({data['org_count']} organizations):</p>
-        {table_html}
-        {more_text}
-        <p style="margin-top: 15px;"><strong>Total annual recurring donations:</strong> ${totals['total_recurring']:,.2f}</p>
-        <p style="margin-top: 5px;"><strong>Total ever donated to recurring causes:</strong> ${totals['total_ever']:,.2f}</p>
-    </div>"""
 
     def format_charity_detail_section(self, data):
         """Format charity detail section as HTML"""
@@ -294,37 +232,58 @@ class HTMLFormatter(ReportFormatter):
         table_html += self._table_end()
         return table_html
 
+    def format_one_time_table(self, one_time, max_shown=20):
+        """Format one-time donations table as HTML"""
+        headers = [
+            ("Organization", "left"),
+            ("Amount", "right"),
+            ("Date", "center")
+        ]
+        table_html = self._table_start(headers)
+
+        for i, (tax_id, data) in enumerate(one_time.head(max_shown).iterrows()):
+            org_name = data["Organization_Name"]
+            cells = [
+                (org_name, "left"),
+                (f"${data['Total_Amount']:,.2f}", "right"),
+                (data["First_Date"].strftime("%m/%d/%Y"), "center")
+            ]
+            table_html += "\n" + self._table_row(cells, i)
+
+        table_html += self._table_end()
+        return table_html
+
+    def format_stopped_recurring_table(self, stopped_recurring, max_shown=15):
+        """Format stopped recurring donations table as HTML"""
+        headers = [
+            ("Organization", "left"),
+            ("Total Amount", "right"),
+            ("Donations", "center"),
+            ("First Date", "center"),
+            ("Last Date", "center")
+        ]
+        table_html = self._table_start(headers)
+
+        for i, (tax_id, data) in enumerate(stopped_recurring.head(max_shown).iterrows()):
+            org_name = data["Organization_Name"]
+            cells = [
+                (org_name, "left"),
+                (f"${data['Total_Amount']:,.2f}", "right"),
+                (str(data["Donation_Count"]), "center"),
+                (data["First_Date"].strftime("%m/%d/%Y"), "center"),
+                (data["Last_Date"].strftime("%m/%d/%Y"), "center")
+            ]
+            table_html += "\n" + self._table_row(cells, i)
+
+        table_html += self._table_end()
+        return table_html
+
 
 class MarkdownFormatter(ReportFormatter):
     """Markdown-specific formatting"""
 
     def __init__(self, builder=None):
         self.builder = builder
-
-    def format_recurring_section(self, data):
-        """Format recurring donations as Markdown table"""
-        if data is None:
-            return "\n## Recurring Donations\n\nNo recurring donations found.\n"
-        section = "\n## Recurring Donations\n\n"
-        section += f"Organizations with recurring donations (4+ years) ({data['org_count']} organizations):\n\n"
-        # Include Period column now that recurring analysis supplies it
-        section += "| EIN | Organization | First Year | Years | Period | Amount | Total Ever Donated | Last Donation |\n"
-        section += "|:----|:-------------|:----------:|:-----:|:------:|-------:|------------------:|:-------------|\n"
-
-        for row in data['rows']:
-            period = row.get('period', 'Unknown')
-            charity_info = self.builder.format_charity_info(row['ein'], row['organization'])
-            org_name = charity_info['markdown_org']
-            section += f"| {row['ein']} | {org_name} | {row['first_year']} | {row['years']} | {period} | ${row['amount']:,.2f} | ${row['total_ever']:,.2f} | {row['last_date'].strftime('%Y-%m-%d')} |\n"
-
-        if data['overflow_count'] > 0:
-            section += f"\n*... and {data['overflow_count']} more organizations*\n"
-
-        totals = data['totals']
-        section += f"\n**Total annual recurring donations:** ${totals['total_recurring']:,.2f}\n"
-        section += f"**Total ever donated to recurring causes:** ${totals['total_ever']:,.2f}\n"
-
-        return section
 
     def format_charity_detail_section(self, data):
         """Format charity detail section as Markdown"""
@@ -379,52 +338,6 @@ class TextFormatter(ReportFormatter):
 
     def __init__(self, builder=None):
         self.builder = builder
-
-    def format_recurring_section(self, data):
-        """Format recurring donations as plain text table"""
-        if data is None:
-            return f"""RECURRING DONATIONS
-{'-' * 80}
-
-No recurring donations found.
-
-"""
-
-        section = f"""RECURRING DONATIONS
-{'-' * 80}
-
-Organizations with recurring donation schedules ({data['org_count']} organizations):
-
-"""
-
-        from tabulate import tabulate
-        table_data = []
-        for row in data['rows']:
-            charity_info = self.builder.format_charity_info(row['ein'], row['organization'])
-            org_name = charity_info['text_org'][:40]
-            table_data.append([
-                row['ein'],
-                org_name,
-                row['first_year'],
-                row['years'],
-                f"${row['amount']:,.2f}",
-                f"${row['total_ever']:,.2f}",
-                row['last_date'].strftime('%Y-%m-%d')
-            ])
-
-        section += tabulate(table_data,
-                           headers=['EIN', 'Organization', 'First Year', 'Years', 'Amount', 'Total Ever', 'Last Donation'],
-                           tablefmt='simple')
-        section += "\n"
-
-        if data['overflow_count'] > 0:
-            section += f"\n... and {data['overflow_count']} more organizations\n"
-
-        totals = data['totals']
-        section += f"\nTotal annual recurring donations: ${totals['total_recurring']:,.2f}\n"
-        section += f"Total ever donated to recurring causes: ${totals['total_ever']:,.2f}\n\n"
-
-        return section
 
     def format_charity_detail_section(self, data):
         """Format charity detail section as plain text"""
