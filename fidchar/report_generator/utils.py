@@ -1,16 +1,7 @@
 from typing import List
 from report_generator.models import ReportTable
-from report_generator.renderers import TextRenderer, MarkdownRenderer, HTMLSectionRenderer
+from report_generator.renderers import HTMLSectionRenderer
 from report_generator.profiles import get_charity_profiles
-
-
-def render_text_document(tables: List[ReportTable]) -> str:
-    tr = TextRenderer()
-    return "\n\n".join(tr.render(t) for t in tables)
-
-def render_markdown_document(tables: List[ReportTable]) -> str:
-    mr = MarkdownRenderer()
-    return "\n\n---\n\n".join(mr.render(t) for t in tables)
 
 def render_html_document(tables: List[ReportTable], doc_title="Donation Reports",
                          custom_header=None, custom_footer=None, custom_styles=None,
@@ -54,42 +45,6 @@ def render_html_document(tables: List[ReportTable], doc_title="Donation Reports"
 </body>
 </html>"""
 
-
-def render_profile_text() -> str:
-    profiles = get_charity_profiles()
-    lines = ["Charity Evaluation Profiles", "=" * 30]
-    for p in profiles:
-        lines.append(f"\n**{p['name']}**")
-        lines.append(f"Tax ID: {p['tax_id']}")
-        lines.append(f"Sector: {p['sector']}")
-        lines.append(f"Total Donations: {p['total_donations']}")
-        lines.append(f"Number of Donations: {p['num_donations']}")
-        lines.append("Charity Evaluation:")
-        for k, v in p["evaluation"].items():
-            lines.append(f"  - {k}: {v} metrics")
-        lines.append(f"Alignment with Your Goals: {p['alignment']}/100")
-        lines.append("Additional Notes:")
-        for note in p["notes"]:
-            lines.append(f"  - {note}")
-    return "\n".join(lines)
-
-def render_profile_markdown() -> str:
-    profiles = get_charity_profiles()
-    lines = ["## Charity Evaluation Profiles"]
-    for p in profiles:
-        lines.append(f"\n### {p['name']}")
-        lines.append(f"- **Tax ID**: {p['tax_id']}")
-        lines.append(f"- **Sector**: {p['sector']}")
-        lines.append(f"- **Total Donations**: {p['total_donations']}")
-        lines.append(f"- **Number of Donations**: {p['num_donations']}")
-        lines.append("- **Charity Evaluation:**")
-        for k, v in p["evaluation"].items():
-            lines.append(f"  - {k}: {v} metrics")
-        lines.append(f"- **Alignment with Your Goals**: {p['alignment']}/100")
-        lines.append("- **Additional Notes:**")
-        for note in p["notes"]:
-            lines.append(f"  - {note}")
-    return "\n".join(lines)
 
 def render_profile_html() -> str:
     profiles = get_charity_profiles()

@@ -8,13 +8,13 @@ import pandas as pd
 class BaseReportBuilder:
     """Base class for report builders with shared state and common logic"""
 
-    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, focus_ein_set=None):
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None):
         self.df = df
         self.config = config
         self.charity_details = charity_details
         self.graph_info = graph_info
         self.charity_evaluations = charity_evaluations
-        self.focus_ein_set = focus_ein_set or set()
+        self.recurring_ein_set = recurring_ein_set or set()
 
     def extract_charity_details(self, tax_id):
         """Extract common charity details - single implementation"""
@@ -83,7 +83,7 @@ class BaseReportBuilder:
                 'amount': row['Amount'],
                 'total_ever': row['Total_Ever_Donated'],
                 'last_date': row['Last_Donation_Date'],
-                'is_focus': self.is_focus_charity(row['EIN'])
+                'is_recurring': self.is_recurring_charity(row['EIN'])
             })
 
         totals = self.calculate_recurring_totals(recurring_donations)
@@ -114,56 +114,96 @@ class BaseReportBuilder:
             'graph_filename': graph_filename,
             'has_graph': has_graph,
             'evaluation': evaluation,
-            'focus_charity': getattr(evaluation, 'focus_charity', False) if evaluation else False
+            'recurring_charity': ein in self.recurring_ein_set
         }
 
     def prepare_top_charities_data(self, top_charities):
-        """Augment top charities DataFrame with focus flags"""
+        """Augment top charities DataFrame with recurring and alignment flags"""
         result = top_charities.copy()
-        result['is_focus'] = result.index.map(lambda tax_id: self.is_focus_charity(tax_id))
+        result['is_recurring'] = result.index.map(lambda tax_id: self.is_recurring_charity(tax_id))
+        result['alignment_status'] = result.index.map(lambda tax_id: self.get_alignment_status(tax_id))
         return result
 
-    # Focus charities helpers
-    def is_focus_charity(self, ein):
-        """Check if a given EIN is a focus charity"""
+    # Recurring charities helpers
+    def is_recurring_charity(self, ein):
+        """Check if a given EIN is a recurring charity"""
+        return ein in self.recurring_ein_set
+
+    def get_alignment_status(self, ein):
+        """Get alignment status for a charity based on alignment score.
+
+        Returns: 'aligned' if score >= 70, 'not_aligned' if score < 70, None if no evaluation
+        """
         if not self.charity_evaluations or ein not in self.charity_evaluations:
-            return False
+            return None
+
         evaluation = self.charity_evaluations[ein]
-        return getattr(evaluation, 'focus_charity', False)
+        alignment_score = getattr(evaluation, 'alignment_score', None)
+
+        if alignment_score is None:
+            return None
+
+        return 'aligned' if alignment_score >= 70 else 'not_aligned'
+
+    def get_alignment_badge_info(self, alignment_score):
+        """Get star rating and color for an alignment score.
+
+        Returns: dict with 'stars', 'bg_color', 'text_color'
+        Color scheme: Grey (1 star) -> Light Green -> Medium Green -> Dark Green -> Pure Green (5 stars)
+        """
+        if alignment_score >= 90:
+            return {"stars": "⭐⭐⭐⭐⭐", "bg_color": "#00c853", "text_color": "#fff"}  # Pure green
+        elif alignment_score >= 70:
+            return {"stars": "⭐⭐⭐⭐", "bg_color": "#43a047", "text_color": "#fff"}  # Dark green
+        elif alignment_score >= 50:
+            return {"stars": "⭐⭐⭐", "bg_color": "#66bb6a", "text_color": "#fff"}  # Medium green
+        elif alignment_score >= 30:
+            return {"stars": "⭐⭐", "bg_color": "#81c784", "text_color": "#fff"}  # Soft light green
+        else:
+            return {"stars": "⭐", "bg_color": "#9e9e9e", "text_color": "#fff"}  # Grey
 
     def format_charity_info(self, ein, org_name, total_donated=None):
-        """Generate unified charity info for all formats.
+        """Generate charity info with HTML formatting.
 
         Returns dict with:
         - ein: The EIN string
         - org_name: The organization name
-        - is_focus: Boolean indicating if charity is a focus charity
+        - is_recurring: Boolean indicating if charity is a recurring charity
+        - alignment_status: 'aligned', 'not_aligned', or None
         - total_donated: Optional total donated amount
-        - html_org: HTML-formatted org name with focus badge
-        - markdown_org: Markdown-formatted org name with focus badge
-        - text_org: Plain text org name with focus badge
+        - html_org: HTML-formatted org name with recurring and alignment badges
         """
-        is_focus = self.is_focus_charity(ein)
+        is_recurring = self.is_recurring_charity(ein)
+        alignment_status = self.get_alignment_status(ein)
 
-        # HTML format with styled badge
-        html_badge = " <span style=\"background:#ffd24d; color:#333; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;\">FOCUS</span>"
-        html_org = org_name + (html_badge if is_focus else "")
+        # Build HTML badges
+        badges_html = ""
 
-        # Markdown format with bold badge
-        markdown_badge = " **[FOCUS]**"
-        markdown_org = org_name + (markdown_badge if is_focus else "")
+        # Recurring badge
+        if is_recurring:
+            badges_html += " <span style=\"background:#ffd24d; color:#333; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;\">RECURRING</span>"
 
-        # Text format with simple badge
-        text_badge = " [FOCUS]"
-        text_org = org_name + (text_badge if is_focus else "")
+        # Alignment badge with star rating
+        if ein in self.charity_evaluations:
+            evaluation = self.charity_evaluations[ein]
+            alignment_score = getattr(evaluation, 'alignment_score', None)
+
+            if alignment_score is not None and alignment_score > 0:
+                # Get badge info from centralized method
+                badge_info = self.get_alignment_badge_info(alignment_score)
+
+                # Add border for transparent background
+                border_style = "border:1px solid #ddd;" if badge_info["bg_color"] == "transparent" else ""
+                badges_html += f" <span style=\"background:{badge_info['bg_color']}; color:{badge_info['text_color']}; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600; {border_style}\">ALIGNMENT: {badge_info['stars']}</span>"
+
+        html_org = org_name + badges_html
 
         result = {
             'ein': ein,
             'org_name': org_name,
-            'is_focus': is_focus,
-            'html_org': html_org,
-            'markdown_org': markdown_org,
-            'text_org': text_org
+            'is_recurring': is_recurring,
+            'alignment_status': alignment_status,
+            'html_org': html_org
         }
 
         if total_donated is not None:
@@ -171,15 +211,15 @@ class BaseReportBuilder:
 
         return result
 
-    def get_focus_charities(self):
-        """Return dict of EIN -> evaluation objects flagged as focus charities"""
+    def get_recurring_charities(self):
+        """Return dict of EIN -> evaluation objects for focus charities"""
         if not self.charity_evaluations:
             return {}
-        return {ein: ev for ein, ev in self.charity_evaluations.items() if getattr(ev, 'focus_charity', False)}
+        return {ein: ev for ein, ev in self.charity_evaluations.items() if ein in self.recurring_ein_set}
 
-    def focus_charity_stats(self):
+    def recurring_charity_stats(self):
         """Compute count and total donated for focus charities using charity_details."""
-        focus = self.get_focus_charities()
+        focus = self.get_recurring_charities()
         total = 0.0
         for ein in focus.keys():
             if ein in self.charity_details:
@@ -190,7 +230,7 @@ class BaseReportBuilder:
 
     def build_focus_rows(self):
         """Construct rows for focus charities section."""
-        focus = self.get_focus_charities()
+        focus = self.get_recurring_charities()
         rows = []
         for ein, evaluation in focus.items():
             org_df = self.charity_details.get(ein)
@@ -219,17 +259,17 @@ class BaseReportBuilder:
         rows.sort(key=lambda r: r['total_donated'], reverse=True)
         return rows
 
-    def prepare_focus_summary_data(self):
+    def prepare_recurring_summary_data(self):
         """Prepare focus charities summary with last donation date and total donated.
 
-        Uses the focus_ein_set which contains ALL focus charities identified from the dataset,
+        Uses the recurring_ein_set which contains ALL focus charities identified from the dataset,
         not just those in the top 10 evaluated charities.
         """
-        if not self.focus_ein_set:
+        if not self.recurring_ein_set:
             return None
 
         rows = []
-        for ein in self.focus_ein_set:
+        for ein in self.recurring_ein_set:
             org_df = self.df[self.df['Tax ID'] == ein]
             if not org_df.empty:
                 org_name = org_df['Organization'].iloc[0]

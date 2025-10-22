@@ -1,11 +1,7 @@
 import pandas as pd
 from report_generator.models import ReportTable
 from report_generator.utils import (
-    render_text_document,
-    render_markdown_document,
     render_html_document,
-    render_profile_text,
-    render_profile_markdown,
     render_profile_html
 )
 
@@ -41,7 +37,7 @@ if __name__ == "__main__":
             "13-1644147", "13-5660870", "13-3433452", "51-0198509", "04-3567502",
             "02-6006033", "52-1838756", "20-2283667", "20-3281486", "13-3281486"
         ],
-        "FOCUS": [
+        "RECURRING": [
             True, False, True, False, False,
             True, True, True, False, True,
             False, False, False, False, True
@@ -51,9 +47,9 @@ if __name__ == "__main__":
     table1 = ReportTable.from_dataframe(
         df1,
         title="Top 15 Charities by Total Donations",
-        footnotes=["FOCUS organizations are marked with a yellow badge next to their name."],
+        footnotes=["RECURRING organizations are marked with a yellow badge next to their name."],
         source="Uploaded table image",
-        focus_column="FOCUS"
+        recurring_column="RECURRING"
     )
 
     # ---------------------------------
@@ -91,27 +87,16 @@ if __name__ == "__main__":
     # -----------------------------
     tables = [table1, table2]
 
-    text_content = render_text_document(tables)
-    md_content = render_markdown_document(tables)
     html_content = render_html_document(tables, doc_title="Donation Reports")
 
     # -----------------------------
     # Append profile section
     # -----------------------------
-    text_content += "\n\n" + render_profile_text()
-    md_content += "\n\n" + render_profile_markdown()
     html_content += "\n" + render_profile_html()
 
     # -----------------------------
-    # Save outputs
+    # Save output
     # -----------------------------
-    outputs = {
-        "t1.txt": text_content,
-        "t1.md": md_content,
-        "t1.html": html_content
-    }
-
-    for filename, content in outputs.items():
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"Saved: {filename}")
+    with open("t1.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print("Saved: t1.html")

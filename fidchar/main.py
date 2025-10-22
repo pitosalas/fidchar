@@ -63,14 +63,17 @@ def main():
         top_n = top_char_cfg.get("count", 10)
         top_charities, char_details, graph_info = dp.analyze_top_charities(df, top_n)
 
-        # Get charity evaluations from charapi (includes focus determination)
+        # Get charity evaluations from charapi (includes recurring determination)
         charapi_cfg_path = config.get("charapi_config_path")
-        char_evals, focus_ein_set = ev.get_charity_evaluations(top_charities, charapi_cfg_path, df)
+        recurring_config = config.get("recurring_charity")
+        char_evals, recurring_ein_set = ev.get_charity_evaluations(
+            top_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
+        )
 
         # Generate HTML report
         print("Generating HTML report...")
 
-        html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, focus_ein_set)
+        html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, recurring_ein_set)
         html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                     stopped_recur, top_charities)
 

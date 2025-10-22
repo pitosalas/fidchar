@@ -8,7 +8,8 @@ class ReportTable:
     rows: list[list[str | int | float]]
     footnotes: list[str] = field(default_factory=list)
     source: str | None = None
-    focus_flags: list[bool] = field(default_factory=list)
+    recurring_flags: list[bool] = field(default_factory=list)
+    alignment_flags: list[str | None] = field(default_factory=list)  # 'aligned', 'not_aligned', or None
 
     @classmethod
     def from_dataframe(
@@ -17,19 +18,29 @@ class ReportTable:
         title: str | None = None,
         footnotes: list[str] | None = None,
         source: str | None = None,
-        focus_column: str | None = None,
+        recurring_column: str | None = None,
+        alignment_column: str | None = None,
     ):
         df = df.copy()
-        focus_flags = df[focus_column].tolist() if focus_column and focus_column in df.columns else [False] * len(df)
-        if focus_column and focus_column in df.columns:
-            df.drop(columns=[focus_column], inplace=True)
+
+        # Extract recurring flags
+        recurring_flags = df[recurring_column].tolist() if recurring_column and recurring_column in df.columns else [False] * len(df)
+        if recurring_column and recurring_column in df.columns:
+            df.drop(columns=[recurring_column], inplace=True)
+
+        # Extract alignment flags
+        alignment_flags = df[alignment_column].tolist() if alignment_column and alignment_column in df.columns else [None] * len(df)
+        if alignment_column and alignment_column in df.columns:
+            df.drop(columns=[alignment_column], inplace=True)
+
         return cls(
             title=title,
             columns=list(df.columns),
             rows=df.values.tolist(),
             footnotes=footnotes or [],
             source=source,
-            focus_flags=focus_flags,
+            recurring_flags=recurring_flags,
+            alignment_flags=alignment_flags,
         )
 
 

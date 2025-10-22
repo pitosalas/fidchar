@@ -9,9 +9,10 @@ input_file: "../data.csv"
 # - sectors: Donation Analysis by Charitable Sector
 # - yearly: Yearly Donation Analysis
 # - top_charities: Top N Charities by Total Donations
-# - focus_summary: Focus Charities Summary (EIN, name, total donated, last donation date)
+# - recurring_summary: Recurring Charities Summary (EIN, name, total donated, last donation date)
 # - patterns: One-Time vs Recurring Donation Patterns
 # - detailed: Detailed Analysis of Top N Charities
+# - definitions: Definitions of terms used in the report
 
 sections:
   - name: exec
@@ -30,10 +31,10 @@ sections:
   - name: top_charities
     # Top 10 Charities by Total Donations
     options:
-      count: 15
+      count: 20
 
-  - name: focus_summary
-    # Focus Charities Summary - simple list with last donation and total
+  - name: recurring_summary
+    # Recurring Charities Summary - simple list with last donation and total
 
   - name: patterns
     # One-Time vs Recurring Donation Patterns
@@ -45,13 +46,19 @@ sections:
     # options:
     #   include_descriptions: true
 
+  - name: definitions
+    # Definitions of terms used in the report
+
 # Output directory
 output_dir: "../output"
 
-# Charity Navigator API settings (optional)
-charity_navigator:
-  app_id: "3069"
-  app_key: null  # Set environment variable CHARITY_NAVIGATOR_APP_KEY
-
 # Charapi configuration path (for charity evaluations)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
+
+# Recurring charity determination (based on YOUR donation patterns)
+# A charity is "recurring" if you donated to them regularly in recent years
+recurring_charity:
+  enabled: true
+  count: 15           # Look at last 15 years
+  min_years: 5        # Must have donated in at least 5 of those years
+  min_amount: 1000    # Each qualifying year must have >= $1000 in donations

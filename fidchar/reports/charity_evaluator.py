@@ -6,49 +6,63 @@ Handles all charapi dependencies and evaluation calls.
 
 import time
 import yaml
+import traceback
 from charapi import evaluate_charity
 import core.analysis as an
 
-def get_charity_evaluations(top_charities, charapi_config_path, donation_df):
+def get_charity_evaluations(top_charities, charapi_config_path, donation_df, recurring_config=None,
+                           one_time=None, stopped_recurring=None):
     """Fetch charity evaluations from charapi for top charities
 
     Args:
         top_charities: DataFrame index of Tax IDs
         charapi_config_path: Path to charapi config file
-        donation_df: DataFrame with YOUR donation data (for focus determination)
+        donation_df: DataFrame with YOUR donation data (for recurring determination)
+        recurring_config: Dict with recurring_charity settings (count, min_years, min_amount)
+                         If None, uses defaults: count=15, min_years=5, min_amount=1000
+        one_time: DataFrame of one-time donations (indexed by Tax ID)
+        stopped_recurring: DataFrame of stopped recurring donations (indexed by Tax ID)
     """
     if not charapi_config_path:
-        return {}
+        return {}, set()
 
-    # Load charapi config to get focus_charity settings
-    with open(charapi_config_path, "r") as f:
-        charapi_config = yaml.safe_load(f)
-
-    # Determine focus charities based on YOUR donation patterns using charapi config
-    focus_cfg = charapi_config.get("focus_charity", {})
-    if focus_cfg.get("enabled", False):
-        focus_charities = an.determine_focus_charities(
+    if recurring_config.get("enabled", True):
+        recurring_charities = an.determine_recurring_charities(
             donation_df,
-            focus_cfg.get("count", 15),
-            focus_cfg.get("min_years", 5),
-            focus_cfg.get("min_amount", 1000)
+            recurring_config.get("count", 15),
+            recurring_config.get("min_years", 5),
+            recurring_config.get("min_amount", 1000)
         )
-        print(f"Identified {len(focus_charities)} focus charities")
+        print(f"Identified {len(recurring_charities)} recurring charities")
     else:
-        focus_charities = set()
+        recurring_charities = set()
 
     evaluations = {}
 
-    for i, tax_id in enumerate(top_charities.index, 1):
+    # Combine all charity lists to ensure all displayed charities are evaluated
+    charities_to_evaluate = set(top_charities.index) | recurring_charities
+
+    if one_time is not None:
+        charities_to_evaluate |= set(one_time.index)
+
+    if stopped_recurring is not None:
+        charities_to_evaluate |= set(stopped_recurring.index)
+
+    print(f"Evaluating {len(charities_to_evaluate)} charities (top + recurring + one-time + stopped)")
+
+    for i, tax_id in enumerate(charities_to_evaluate, 1):
         try:
             result = evaluate_charity(tax_id, charapi_config_path)
-
-            # Override focus_charity flag with OUR determination based on YOUR donations
-            result.focus_charity = tax_id in focus_charities
-
             evaluations[tax_id] = result
             time.sleep(0.1)
         except Exception as e:
             print(f"Warning: Could not evaluate charity {tax_id}: {e}")
+            # Get the last frame from traceback (where the error actually occurred)
+            tb_lines = traceback.format_exc().splitlines()
+            # Find the actual source line (skip the error message at the end)
+            for line in reversed(tb_lines[:-1]):
+                if 'File "' in line or '.py", line' in line:
+                    print(f"  {line.strip()}")
+                    break
 
-    return evaluations, focus_charities
+    return evaluations, recurring_charities

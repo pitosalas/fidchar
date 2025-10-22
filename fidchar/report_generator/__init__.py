@@ -1,7 +1,7 @@
 """Report Generator - A general-purpose report rendering library.
 
-Provides data models and renderers for creating reports in multiple formats
-(Text, Markdown, HTML) from structured data.
+Provides data models and renderers for creating reports in HTML format
+from structured data.
 
 Usage:
     From within fidchar:
@@ -13,11 +13,7 @@ Usage:
 
 from report_generator.models import ReportTable, ReportCard, CardSection
 from report_generator.renderers import (
-    TextRenderer,
-    MarkdownRenderer,
     HTMLSectionRenderer,
-    TextCardRenderer,
-    MarkdownCardRenderer,
     HTMLCardRenderer
 )
 
@@ -25,11 +21,7 @@ __all__ = [
     'ReportTable',
     'ReportCard',
     'CardSection',
-    'TextRenderer',
-    'MarkdownRenderer',
     'HTMLSectionRenderer',
-    'TextCardRenderer',
-    'MarkdownCardRenderer',
     'HTMLCardRenderer',
 ]
 

@@ -92,22 +92,29 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
 class HTMLReportBuilder(brb.BaseReportBuilder):
     """HTML report builder with inherited state - BOOTSTRAP VERSION"""
 
-    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, focus_ein_set=None):
-        super().__init__(df, config, charity_details, graph_info, charity_evaluations, focus_ein_set)
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None):
+        super().__init__(df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set)
         self.table_renderer = HTMLSectionRenderer()
         self.card_renderer = HTMLCardRenderer()
 
     def generate_top_charities_bootstrap(self, top_charities):
         """Generate top charities table using Bootstrap renderer"""
-        augmented = self.prepare_top_charities_data(top_charities)
-        df_for_table = augmented.reset_index()[['Organization', 'Amount_Numeric', 'is_focus']]
-        df_for_table['Amount_Numeric'] = df_for_table['Amount_Numeric'].apply(lambda x: f"${x:,.0f}")
-        df_for_table.columns = ['Organization', 'Total Amount', 'FOCUS']
+        # Build DataFrame with formatted org names that include badges
+        df_data = []
+        for ein, row in top_charities.iterrows():
+            # Get formatted org name with badges
+            charity_info = self.format_charity_info(ein, row['Organization'], row['Amount_Numeric'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total Amount': f"${row['Amount_Numeric']:,.0f}"
+            })
+
+        df_for_table = pd.DataFrame(df_data)
 
         table = ReportTable.from_dataframe(
             df_for_table,
-            title=f"Top {len(top_charities)} Charities by Total Donations",
-            focus_column='FOCUS'
+            title=f"Top {len(top_charities)} Charities by Total Donations"
         )
         return self.table_renderer.render(table)
 
@@ -140,10 +147,19 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
     def generate_one_time_table_bootstrap(self, one_time, max_shown=20):
         """Generate one-time donations table using Bootstrap renderer"""
-        df = one_time.head(max_shown).reset_index()[['Organization_Name', 'Total_Amount', 'First_Date']]
-        df['Total_Amount'] = df['Total_Amount'].apply(lambda x: f"${x:,.2f}")
-        df['First_Date'] = df['First_Date'].dt.strftime("%m/%d/%Y")
-        df.columns = ['Organization', 'Amount', 'Date']
+        # Build DataFrame with formatted org names that include badges
+        df_data = []
+        for ein, row in one_time.head(max_shown).iterrows():
+            # Get formatted org name with badges
+            charity_info = self.format_charity_info(ein, row['Organization_Name'], row['Total_Amount'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Amount': f"${row['Total_Amount']:,.2f}",
+                'Date': row['First_Date'].strftime("%m/%d/%Y")
+            })
+
+        df = pd.DataFrame(df_data)
 
         table = ReportTable.from_dataframe(
             df,
@@ -153,13 +169,21 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
     def generate_stopped_table_bootstrap(self, stopped_recurring, max_shown=15):
         """Generate stopped recurring table using Bootstrap renderer"""
-        df = stopped_recurring.head(max_shown).reset_index()[
-            ['Organization_Name', 'Total_Amount', 'Donation_Count', 'First_Date', 'Last_Date']
-        ]
-        df['Total_Amount'] = df['Total_Amount'].apply(lambda x: f"${x:,.2f}")
-        df['First_Date'] = df['First_Date'].dt.strftime("%m/%d/%Y")
-        df['Last_Date'] = df['Last_Date'].dt.strftime("%m/%d/%Y")
-        df.columns = ['Organization', 'Total Amount', 'Donations', 'First Date', 'Last Date']
+        # Build DataFrame with formatted org names that include badges
+        df_data = []
+        for ein, row in stopped_recurring.head(max_shown).iterrows():
+            # Get formatted org name with badges
+            charity_info = self.format_charity_info(ein, row['Organization_Name'], row['Total_Amount'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total Amount': f"${row['Total_Amount']:,.2f}",
+                'Donations': row['Donation_Count'],
+                'First Date': row['First_Date'].strftime("%m/%d/%Y"),
+                'Last Date': row['Last_Date'].strftime("%m/%d/%Y")
+            })
+
+        df = pd.DataFrame(df_data)
 
         table = ReportTable.from_dataframe(
             df,
@@ -167,22 +191,26 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         )
         return self.table_renderer.render(table)
 
-    def generate_focus_summary_section_html(self, data):
-        """Generate focus charities summary as HTML using HTMLSectionRenderer"""
+    def generate_recurring_summary_section_html(self, data):
+        """Generate recurring charities summary as HTML using HTMLSectionRenderer"""
         if data is None:
             return """
     <div class="report-section">
-        <h2 class="section-title">Focus Charities Summary</h2>
-        <p>No focus charities identified.</p>
+        <h2 class="section-title">Recurring Charities Summary</h2>
+        <p>No recurring charities identified.</p>
     </div>"""
 
         # Build DataFrame from rows
         df_data = []
         for row in data['rows']:
             last_date_str = row['last_date'].strftime('%Y-%m-%d') if row['last_date'] else 'N/A'
+
+            # Get formatted org name with badges
+            charity_info = self.format_charity_info(row['ein'], row['organization'], row['total_donated'])
+
             df_data.append({
                 'EIN': row['ein'],
-                'Organization': row['organization'],
+                'Organization': charity_info['html_org'],
                 'Total Donated': f"${row['total_donated']:,.2f}",
                 'Last Donation': last_date_str
             })
@@ -197,11 +225,11 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         return f"""
     <div class="report-section">
-        <h2 class="section-title">Focus Charities Summary</h2>
-        <p>{data['count']} charities identified as strategic focus based on your donation patterns:</p>
+        <h2 class="section-title">Recurring Charities Summary</h2>
+        <p>{data['count']} charities identified as recurring based on your donation patterns:</p>
         {table_html}
         <p style="font-weight: bold; margin-top: 20px;">
-            Total donated to focus charities: ${data['total']:,.2f}
+            Total donated to recurring charities: ${data['total']:,.2f}
         </p>
     </div>"""
 
@@ -221,7 +249,9 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         total_donated = org_donations["Amount_Numeric"].sum()
         donation_count = len(org_donations)
 
-        is_focus = tax_id in self.focus_ein_set if self.focus_ein_set else False
+        # Get formatted org name with badges
+        charity_info = self.format_charity_info(tax_id, org_name, total_donated)
+        org_name_with_badges = charity_info['html_org']
 
         sections = [
             CardSection(
@@ -235,10 +265,27 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             )
         ]
 
-        if description and description != "No description available":
+        # Add mission statement if available
+        mission_text = None
+        if evaluation:
+            # Try to get mission from evaluation
+            mission_text = getattr(evaluation, 'mission', None)
+
+            # If no mission from API, generate from NTEE code
+            if not mission_text:
+                from charapi.data.ntee_mapper import NTEEMapper
+                # Get NTEE code from metrics
+                from charapi.data.charity_evaluation_result import MetricCategory
+                mission_metric = next((m for m in evaluation.metrics if m.category == MetricCategory.PREFERENCE and "Mission" in m.name), None)
+                if mission_metric and mission_metric.value:
+                    ntee_code = mission_metric.value
+                    mission_text = NTEEMapper.get_description(ntee_code)
+
+        if mission_text:
             sections.append(CardSection(
                 section_type="text",
-                content=description
+                title="Mission:",
+                content=mission_text
             ))
 
         if evaluation:
@@ -252,17 +299,26 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 ]
             ))
 
-            if evaluation.alignment_score is not None:
-                color = 'success' if evaluation.alignment_score >= 70 else 'warning' if evaluation.alignment_score >= 50 else 'danger'
+            if evaluation.alignment_score is not None and evaluation.alignment_score > 0:
+                # Get alignment badge (star rating) from centralized method
+                alignment_score = evaluation.alignment_score
+                badge_info = self.get_alignment_badge_info(alignment_score)
+
+                badge_html = f"<span style='background:{badge_info['bg_color']}; color:{badge_info['text_color']}; padding:4px 8px; border-radius:4px; font-size:14px; font-weight:600;'>ALIGNMENT: {badge_info['stars']}</span>"
+
+                # Get preference metrics breakdown
+                from charapi.data.charity_evaluation_result import MetricCategory
+                preference_metrics = [m for m in evaluation.metrics if m.category == MetricCategory.PREFERENCE]
+
+                breakdown_items = [f"<strong>Overall Score: {alignment_score}/100</strong> {badge_html}"]
+                for metric in preference_metrics:
+                    status_icon = "⭐" if metric.status.value == "outstanding" else "✓" if metric.status.value == "acceptable" else "⚠"
+                    breakdown_items.append(f"{status_icon} {metric.name}: {metric.display_value}")
+
                 sections.append(CardSection(
-                    section_type="progress_bar",
-                    title="Alignment with Your Goals",
-                    content={
-                        "label": f"Alignment Score: {evaluation.alignment_score}/100",
-                        "value": evaluation.alignment_score,
-                        "max": 100,
-                        "color": color
-                    }
+                    section_type="list",
+                    title="Alignment with Your Goals:",
+                    content=breakdown_items
                 ))
 
             if evaluation.summary:
@@ -274,8 +330,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         graph_filename = f"images/charity_{i:02d}_{tax_id.replace('-', '')}.png" if has_graph else None
 
         card = ReportCard(
-            title=f"{i}. {org_name}",
-            badge="FOCUS" if is_focus else None,
+            title=f"{i}. {org_name_with_badges}",
+            badge=None,  # Badges are now in the title
             sections=sections,
             image_url=graph_filename,
             image_position="right"
@@ -304,6 +360,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         yearly_html = self.generate_yearly_table_bootstrap(yearly_amounts, yearly_counts)
         top_charities_html = self.generate_top_charities_bootstrap(top_charities)
 
+        # Generate sections HTML (excluding definitions which will be added at the end)
         sections_html = generate_table_sections(
             categories_html,
             yearly_html,
@@ -313,7 +370,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             self.config,
             self.charity_evaluations,
             self,
-            top_charities_count
+            top_charities_count,
+            exclude_definitions=True  # We'll add this manually at the end
         )
 
         # Generate charity cards section
@@ -326,8 +384,11 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             charity_cards_html += self.generate_charity_card_bootstrap(i, tax_id)
         charity_cards_html += "\n    </div>"
 
-        # Combine body content: sections + charity cards
-        body_content = f"{sections_html}\n{charity_cards_html}"
+        # Generate definitions section (at the very end)
+        definitions_html = generate_definitions_section()
+
+        # Combine body content: sections + charity cards + definitions
+        body_content = f"{sections_html}\n{charity_cards_html}\n{definitions_html}"
 
         # Generate footer
         custom_footer = """
@@ -335,9 +396,66 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         <small>Generated by fidchar donation analysis tool</small>
     </footer>"""
 
-        # Custom styles for print
-        custom_styles = """@media print {
-            .card { page-break-inside: avoid; }
+        # Custom styles for print/PDF and definitions
+        custom_styles = """
+        /* Reduce table row padding for more compact display */
+        .table td,
+        .table th {
+            padding: 0.4rem 0.5rem;
+        }
+
+        /* Definitions section styling */
+        .definitions-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .definitions-content h1 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0.5rem;
+        }
+        .definitions-content h2 {
+            font-size: 1.4rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: #0d6efd;
+        }
+        .definitions-content h3 {
+            font-size: 1.1rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .definitions-content p {
+            margin-bottom: 0.75rem;
+        }
+        .definitions-content ul {
+            margin-bottom: 1rem;
+        }
+
+        @media print {
+            .report-section {
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+            .card {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            /* Prevent page break after the last section */
+            .report-section:last-of-type {
+                page-break-after: auto;
+            }
+            /* Keep executive summary header with its content */
+            .section-title {
+                page-break-after: avoid;
+            }
+            /* Keep definition headers with their content */
+            .definitions-content h2,
+            .definitions-content h3 {
+                page-break-after: avoid;
+            }
         }"""
 
         # Build complete HTML document
@@ -356,17 +474,21 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
 def generate_table_sections(categories_html, yearly_html, top_charities_html,
                            one_time, stopped_recurring, config: dict,
-                           charity_evaluations=None, builder=None, top_charities_count=10):
+                           charity_evaluations=None, builder=None, top_charities_count=10,
+                           exclude_definitions=False):
     sections = config.get("sections", {})
     html_content = ""
 
     for section in sections:
         section_id = section if isinstance(section, str) else section.get("name")
+
+        # Skip definitions if we're excluding it (will be added manually at the end)
+        if exclude_definitions and section_id == "definitions":
+            continue
         section_options = section.get("options", {}) if isinstance(section, dict) else {}
         if section_id == "sectors":
             html_content += f"""
     <div class="report-section">
-        <h2 class="section-title">Donations by Charitable Sector</h2>
         {categories_html}
     </div>"""
         elif section_id == "yearly":
@@ -382,7 +504,6 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         elif section_id == "top_charities":
             html_content += f"""
     <div class="report-section">
-        <h2 class="section-title">Top {top_charities_count} Charities by Total Donations</h2>
         {top_charities_html}
     </div>"""
         elif section_id == "patterns":
@@ -410,9 +531,36 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         <p><em>... and {overflow_stopped} more organizations</em></p>"""
                 html_content += f"""
         <p style="margin-top: 15px;"><strong>Stopped recurring donations total:</strong> ${stopped_total:,.2f}</p>"""
-        elif section_id == "focus_summary":
+        elif section_id == "recurring_summary":
             if builder:
-                data = builder.prepare_focus_summary_data()
-                html_content += builder.generate_focus_summary_section_html(data)
+                data = builder.prepare_recurring_summary_data()
+                html_content += builder.generate_recurring_summary_section_html(data)
 
     return html_content
+
+
+def generate_definitions_section():
+    """Generate the definitions section from markdown file"""
+    import os
+    from markdown_it import MarkdownIt
+
+    md = MarkdownIt()
+    definitions_path = os.path.join(os.path.dirname(__file__), "..", "definitions.md")
+
+    try:
+        with open(definitions_path, "r") as f:
+            markdown_content = f.read()
+            html_definitions = md.render(markdown_content)
+
+        return f"""
+    <div class="report-section">
+        <div class="definitions-content">
+            {html_definitions}
+        </div>
+    </div>"""
+    except FileNotFoundError:
+        return """
+    <div class="report-section">
+        <h2 class="section-title">Definitions</h2>
+        <p><em>Definitions file not found.</em></p>
+    </div>"""

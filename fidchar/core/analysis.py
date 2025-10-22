@@ -72,10 +72,10 @@ def get_charity_details(df, top_charities):
     return charity_details
 
 
-def determine_focus_charities(df, count, min_years, min_amount):
-    """Determine focus charities based on YOUR donation patterns.
+def determine_recurring_charities(df, count, min_years, min_amount):
+    """Determine recurring charities based on YOUR donation patterns.
 
-    A charity is a "focus" charity if:
+    A charity is a "recurring" charity if:
     1. You donated to them in the previous calendar year
     2. In the last 'count' years, you donated in at least 'min_years' years
     3. Each qualifying year had donations >= min_amount
@@ -87,7 +87,7 @@ def determine_focus_charities(df, count, min_years, min_amount):
         min_amount: Minimum donation amount per year (e.g., 1000)
 
     Returns:
-        Set of Tax IDs that are focus charities
+        Set of Tax IDs that are recurring charities
     """
     current_year = datetime.now().year
     previous_year = current_year - 1
@@ -100,7 +100,7 @@ def determine_focus_charities(df, count, min_years, min_amount):
     recent_years = list(range(current_year - count, current_year + 1))
     work = work[work['Year'].isin(recent_years)]
 
-    focus_charities = set()
+    recurring_charities = set()
 
     for tax_id in work['Tax ID'].dropna().unique():
         charity_data = work[work['Tax ID'] == tax_id]
@@ -119,6 +119,6 @@ def determine_focus_charities(df, count, min_years, min_amount):
         qualifying_years = sum(1 for amount in yearly_totals if amount >= min_amount)
 
         if qualifying_years >= min_years:
-            focus_charities.add(tax_id)
+            recurring_charities.add(tax_id)
 
-    return focus_charities
+    return recurring_charities
