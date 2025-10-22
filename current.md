@@ -1,10 +1,31 @@
 # Charitable Donation Analysis System - Current State
 
-*Last Updated: October 9, 2025*
+*Last Updated: October 21, 2025 (Evening)*
+
+## 💡 Ideas for Future Enhancements
+
+1. **Use py-box for Configuration Management**
+   - Replace manual YAML dict access with py-box for cleaner dot notation
+   - Would enable `config.input_file` instead of `config["input_file"]`
+   - Provides better attribute access and validation
+   - Lightweight alternative to OmegaConf without Hydra overhead
+
+2. **Add Page Breaks for PDF Printing**
+   - Insert CSS page break hints when HTML is printed to PDF from browser
+   - Use `page-break-before: always` or `page-break-after: always` CSS properties
+   - Ensure each major section starts on a new page in PDF output
+   - Improve professional appearance of printed reports
+
+3. **Code Quality Audit Against rules.md Standards**
+   - Check for imports in the middle of code (should be at top)
+   - Apply YAGNI principle - remove unnecessary abstractions
+   - Identify and eliminate code duplication
+   - Ensure we're not going overboard on error checking
+   - Verify compliance with all rules.md coding standards
 
 ## System Overview
 
-A comprehensive charitable donation analysis system that processes CSV donation data and generates professional reports with visualizations and charity evaluations. The system follows Tufte design principles and provides markdown, text, and HTML outputs with configurable section ordering and parameters.
+A comprehensive charitable donation analysis system that processes CSV donation data and generates professional HTML reports with visualizations and charity evaluations. The system follows Tufte design principles and provides Bootstrap-styled HTML output with configurable section ordering and parameters.
 
 ## Architecture
 
@@ -17,24 +38,20 @@ fidchar/
 │   │   ├── analysis.py        # Data analysis functions
 │   │   └── visualization.py   # Chart generation (Tufte-style)
 │   ├── reports/               # Report generation
-│   │   ├── base_report_builder.py    # Base class for reports
-│   │   ├── formatters.py             # Format-specific formatters
-│   │   ├── markdown_report_builder.py # Markdown reports
-│   │   ├── text_report_builder.py    # Text reports
-│   │   ├── html_report_builder.py    # HTML report sections
-│   │   ├── comprehensive_report.py   # HTML report composition
-│   │   ├── reporting.py              # Console output
+│   │   ├── base_report_builder.py    # Base class with shared logic
+│   │   ├── html_report_builder.py    # HTML reports (Bootstrap)
 │   │   └── charity_evaluator.py      # Charapi integration
-│   ├── tables/                # Table generation
-│   │   └── great_tables_builder.py   # Great Tables HTML generation
-│   ├── conf/                  # Hydra configuration
-│   │   └── config.yaml        # Main config file
-│   ├── main.py                # Orchestration (Hydra-powered)
-│   └── config_schema.py       # Structured config dataclasses
+│   ├── report_generator/      # Reusable report rendering library
+│   │   ├── __init__.py        # Package exports
+│   │   ├── models.py          # ReportTable, ReportCard data models
+│   │   ├── renderers.py       # HTML renderers (Text/Markdown kept for library reuse)
+│   │   ├── utils.py           # Document-level helpers (demo)
+│   │   ├── profiles.py        # Example charity profiles
+│   │   └── main.py            # Standalone demo script
+│   ├── config.yaml            # YAML configuration file
+│   └── main.py                # Main orchestration script
 ├── tests/                     # Unit tests
-│   ├── test_data_processing.py
-│   ├── test_analysis.py
-│   └── test_report_generation.py
+│   └── test_data_processing.py
 ├── archive/                   # Archived old files
 ├── data.csv                   # Input donation data
 └── output/                    # Generated reports and charts
@@ -81,26 +98,23 @@ fidchar/
 - PNG output for all visualizations
 
 ### Reporting
-- **Markdown Report**: Text-based with embedded charts and Great Tables links
-- **Text Report**: Plain text with tabulated data
-- **HTML Report**: Professional with inline Great Tables, CSS styling, and analysis section
-- **Great Tables**: Professional HTML tables with configurable font sizes
+- **HTML Report**: Professional Bootstrap 5.3.2 styling with `report_generator` renderers
+- **Report Generator**: Reusable module for data-driven table/card rendering
+  - `ReportTable` and `ReportCard` data models
+  - HTML renderers for Bootstrap components
+  - Bootstrap card components with sections (text, key_value, list, progress_bar, table)
+  - Text/Markdown renderers kept in library for potential reuse
 - **Section Ordering**: Fully configurable via YAML config
 - **Configurable Parameters**: min_years, min_amount, sort_by, max_shown
 - **PDF Generation**: Browser-based (Print to PDF)
 
-## Configuration System (Hydra)
+## Configuration System
 
-### YAML Configuration (`fidchar/conf/config.yaml`)
+### YAML Configuration (`fidchar/config.yaml`)
 ```yaml
 # Input/Output
 input_file: "../data.csv"
 output_dir: "../output"
-
-# Report Generation
-generate_html: true
-generate_markdown: true
-generate_textfile: false
 
 # Section Ordering with Options
 sections:
@@ -120,12 +134,7 @@ sections:
   - name: detailed      # Detailed Analysis
   - name: analysis      # Strategic Analysis (Efficiency Frontier)
 
-# API Configuration
-charity_navigator:
-  app_id: "3069"
-  app_key: null  # Set via CHARITY_NAVIGATOR_APP_KEY environment variable
-
-# Charapi Integration
+# Charapi Integration (handles all Charity Navigator API access)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 ```
 
@@ -138,39 +147,62 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - `great-tables` - Professional HTML tables
 - `pyyaml` - Configuration file parsing
 - `tabulate` - Text table formatting
-- `hydra-core` - Configuration management with CLI overrides
-- `omegaconf` - Configuration object system
 
 ### External Dependencies
 - `uv` - Python package management
-- `charapi` - Charity evaluation system (separate project)
+- `charapi` - Charity evaluation system (separate project, exclusive source for Charity Navigator data)
 - Browser with Print to PDF capability
 
 ## Current Status
 
 ### ✅ Recently Completed Features
+- **Removed Hydra Dependency** (Oct 21, 2025 - Evening)
+  - Replaced Hydra configuration management with simple YAML loading
+  - Removed hydra-core, omegaconf, and antlr4-python3-runtime dependencies
+  - Simplified main.py by removing decorators and path workarounds
+  - Moved config.yaml from conf/ directory to fidchar/ root
+  - Eliminated working directory changes and OmegaConf conversions
+  - System now uses standard Python yaml.safe_load()
+  - Lost CLI override features but gained simpler, more maintainable code
+
+- **Simplified to HTML-Only Output** (Oct 21, 2025 - Afternoon)
+  - Removed markdown and text report builders
+  - Removed `generate_markdown` and `generate_textfile` config flags
+  - Simplified main.py to generate only HTML reports
+  - Archived obsolete test files (test_analysis.py, test_analyze_recurring_basic.py, test_report_generation.py)
+  - Kept report_generator Text/Markdown renderers for library reusability
+  - System now focuses exclusively on professional HTML reports with Bootstrap styling
+
+- **Report Generator Migration & API Consolidation** (Oct 10, 2025)
+  - Migrated all report builders to use `report_generator` module for table/card rendering
+  - Made `report_generator/` a proper Python package with `__init__.py`
+  - Eliminated duplicate Charity Navigator API calls
+  - Removed `core/charity_api.py` - charapi is now the single source for charity data
+  - All charity descriptions now come from `charapi.evaluation.summary`
+  - Removed `charity_descriptions` parameter throughout codebase
+  - Cleaner architecture: charapi handles all external API integration
+  - Removed obsolete `reports/reporting.py` (misplaced API client)
+  - HTML document generation consolidated into `html_report_builder.py`
+
 - **Hydra Configuration Management** (Oct 9, 2025)
   - CLI overrides for any config value
   - Multi-run capability for parameter sweeps
   - Config visibility (prints resolved config after each run)
   - Cleaner config access with dot notation
   - Original files archived for easy revert
-- Matplotlib Agg backend (prevents macOS Dock icon appearance)
-- Unified HTML/Markdown/Text report builder pattern
-- Shortened identifiers to ~15 characters (coding standards)
-- Fixed charapi absolute imports
-- Inheritance-based report builder architecture (BaseReportBuilder)
-- Configurable consistent donations (min_years, min_amount parameters)
-- Redefined recurring donations based on years supported (not CSV field)
-- Added First Year and Years Supported columns to recurring donations table
-- Removed Period/Recurring field dependency
-- Efficiency Frontier visualization with configurable scoring
-- Updated scoring formula: Outstanding×2 + Acceptable - Unacceptable
-- Single-color bubble chart (removed color coding)
-- All charities labeled on efficiency frontier
-- Updated HTML report to include analysis section
-- Comprehensive unit test suite (57 tests passing)
-- Moved obsolete files to archive/
+
+- **Previous Features**
+  - Matplotlib Agg backend (prevents macOS Dock icon appearance)
+  - Shortened identifiers to ~15 characters (coding standards)
+  - Fixed charapi absolute imports
+  - Inheritance-based report builder architecture (BaseReportBuilder)
+  - Configurable consistent donations (min_years, min_amount parameters)
+  - Efficiency Frontier visualization with configurable scoring
+  - Updated scoring formula: Outstanding×2 + Acceptable - Unacceptable
+  - Single-color bubble chart (removed color coding)
+  - All charities labeled on efficiency frontier
+  - Updated HTML report to include analysis section
+  - Moved obsolete files to archive/
 
 ### 📋 Active Configuration Options
 1. ✅ `recurring.max_shown` - Maximum rows in recurring donations table
@@ -205,54 +237,24 @@ cd /Users/pitosalas/mydev/fidchar/fidchar/
 uv run python main.py
 ```
 
-### CLI Overrides (New with Hydra!)
-```bash
-# Override output formats
-uv run python main.py generate_html=false generate_textfile=true
-
-# Override input file
-uv run python main.py input_file=../data2.csv
-
-# Override nested config
-uv run python main.py sections[2].options.min_years=15
-
-# Multi-run experiments
-uv run python main.py -m sections[2].options.min_years=5,10,15,20
-```
-
-### View Configuration
-```bash
-# Show help and current config
-uv run python main.py --help
-
-# Show resolved config without running
-uv run python main.py --cfg job
-```
+### Configuration
+To modify configuration parameters, edit `fidchar/config.yaml` directly.
 
 ### Output
 ```
 Cleaned output directory
 Processing input file: ../data.csv
-Creating analysis visualizations...
-Generating reports...
-Generating Great Tables HTML files...
-Reports generated: donation_analysis.html, donation_analysis.md in the output directory
-
---- Configuration Used ---
-input_file: ../data.csv
-generate_html: true
-generate_markdown: true
-...
+Identified 42 focus charities
+Generating HTML report...
+Report generated: donation_analysis.html in the output directory
 ```
 
 ### Generated Files
-- `comprehensive_report.html` - Professional HTML report with Great Tables and analysis
-- `donation_analysis.md` - Markdown analysis report
-- `donation_analysis.txt` - Plain text report (if enabled)
-- `gt_*.html` - Individual Great Tables (categories, yearly, consistent, top charities)
-- `yearly_*.png` - Yearly trend charts
-- `charity_*.png` - Individual charity trend graphs
-- `efficiency_frontier.png` - Strategic analysis visualization
+- `donation_analysis.html` - Professional HTML report with Bootstrap styling and visualizations
+- `images/` - Directory containing all generated charts and visualizations
+  - `yearly_*.png` - Yearly trend charts
+  - `charity_*.png` - Individual charity trend graphs
+  - `efficiency_frontier.png` - Strategic analysis visualization
 
 ## System Health
 
@@ -298,8 +300,9 @@ generate_markdown: true
 
 ### Report Architecture
 - **Base Classes**: BaseReportBuilder provides common functionality
-- **Formatters**: HTMLFormatter, MarkdownFormatter, TextFormatter for DRY output
-- **Inheritance**: MarkdownReportBuilder, TextReportBuilder extend base
+- **HTML-Only**: System generates only professional HTML reports with Bootstrap 5.3.2 styling
+- **Report Generator**: Separate reusable library for table/card rendering (supports Text/Markdown/HTML)
+- **Simple Configuration**: YAML-based configuration with no external framework dependencies
 
 ---
 

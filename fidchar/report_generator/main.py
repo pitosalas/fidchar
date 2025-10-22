@@ -1,6 +1,6 @@
 import pandas as pd
-from models import ReportTable
-from utils import (
+from report_generator.models import ReportTable
+from report_generator.utils import (
     render_text_document,
     render_markdown_document,
     render_html_document,

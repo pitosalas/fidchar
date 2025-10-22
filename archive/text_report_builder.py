@@ -13,8 +13,8 @@ from report_generator.renderers import TextRenderer, TextCardRenderer
 
 class TextReportBuilder(BaseReportBuilder):
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
-        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, focus_ein_set=None):
+        super().__init__(df, config, charity_details, graph_info, charity_evaluations, focus_ein_set)
         self.table_renderer = TextRenderer()
         self.card_renderer = TextCardRenderer()
 
@@ -107,7 +107,7 @@ Years Covered:    {self.df['Year'].min()} - {self.df['Year'].max()}
     def generate_charity_card(self, i, tax_id):
         """Generate charity detail as text card using TextCardRenderer"""
         org_donations = self.charity_details[tax_id]
-        description = self.charity_descriptions.get(tax_id, "No description available")
+        description = getattr(self.charity_evaluations.get(tax_id), "summary", None) or "No description available"
         has_graph = self.graph_info.get(tax_id) is not None
         evaluation = self.charity_evaluations.get(tax_id)
 

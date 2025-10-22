@@ -1,7 +1,7 @@
 from typing import List
-from models import ReportTable
-from renderers import TextRenderer, MarkdownRenderer, HTMLSectionRenderer
-from profiles import get_charity_profiles
+from report_generator.models import ReportTable
+from report_generator.renderers import TextRenderer, MarkdownRenderer, HTMLSectionRenderer
+from report_generator.profiles import get_charity_profiles
 
 
 def render_text_document(tables: List[ReportTable]) -> str:
@@ -12,20 +12,45 @@ def render_markdown_document(tables: List[ReportTable]) -> str:
     mr = MarkdownRenderer()
     return "\n\n---\n\n".join(mr.render(t) for t in tables)
 
-def render_html_document(tables: List[ReportTable], doc_title="Donation Reports") -> str:
+def render_html_document(tables: List[ReportTable], doc_title="Donation Reports",
+                         custom_header=None, custom_footer=None, custom_styles=None,
+                         container_class="container my-4") -> str:
+    """Render a complete HTML document with Bootstrap CSS.
+
+    Args:
+        tables: List of ReportTable objects to render
+        doc_title: HTML document title
+        custom_header: Optional HTML to insert after opening container div
+        custom_footer: Optional HTML to insert before closing container div
+        custom_styles: Optional CSS to include in <style> tag
+        container_class: CSS classes for main container div
+
+    Returns:
+        Complete HTML document string
+    """
     hr = HTMLSectionRenderer()
     sections = "\n".join(hr.render(t) for t in tables)
+
+    styles_block = f"<style>\n{custom_styles}\n</style>" if custom_styles else ""
+    header_block = custom_header if custom_header else ""
+    footer_block = custom_footer if custom_footer else ""
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{doc_title}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  {styles_block}
 </head>
 <body>
-<div class="container my-4">
+<div class="{container_class}">
+{header_block}
 {sections}
+{footer_block}
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>"""
 

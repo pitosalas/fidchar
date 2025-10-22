@@ -1,23 +1,7 @@
 # Charitable Donation Analysis Configuration
 
-# Hydra configuration
-defaults:
-  - _self_
-  - override hydra/hydra_logging: disabled
-  - override hydra/job_logging: disabled
-
-hydra:
-  output_subdir: null
-  run:
-    dir: .
-
 # Input data file path
 input_file: "../data.csv"
-
-# Output format settings
-generate_html: true       # Generate html
-generate_markdown: true   # Generate markdown analysis report
-generate_textfile: true   # A simple text file
 
 # Report sections in order with  optional configuration
 # Available sections:

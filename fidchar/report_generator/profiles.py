@@ -1,4 +1,4 @@
-from models import ReportTable
+from report_generator.models import ReportTable
 
 def get_charity_profiles() -> list[dict]:
     return [

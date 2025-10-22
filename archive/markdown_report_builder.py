@@ -14,8 +14,8 @@ from report_generator.renderers import MarkdownRenderer, MarkdownCardRenderer
 class MarkdownReportBuilder(BaseReportBuilder):
     """Markdown report builder with inherited state"""
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
-        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, focus_ein_set=None):
+        super().__init__(df, config, charity_details, graph_info, charity_evaluations, focus_ein_set)
         self.table_renderer = MarkdownRenderer()
         self.card_renderer = MarkdownCardRenderer()
 
@@ -91,8 +91,7 @@ class MarkdownReportBuilder(BaseReportBuilder):
     def generate_stopped_table(self, stopped_recurring, max_shown=15):
         """Generate stopped recurring table using MarkdownRenderer"""
         df = stopped_recurring.head(max_shown).reset_index()[
-            ['Organization_Name', 'Total_Amount', 'Donation_Count', 'First_Date', 'Last_Date']
-        ]
+            ['Organization_Name', 'Total_Amount', 'Donation_Count', 'First_Date', 'Last_Date']]
         df['Total_Amount'] = df['Total_Amount'].apply(lambda x: f"${x:,.2f}")
         df['First_Date'] = df['First_Date'].dt.strftime("%m/%d/%Y")
         df['Last_Date'] = df['Last_Date'].dt.strftime("%m/%d/%Y")
@@ -107,9 +106,13 @@ class MarkdownReportBuilder(BaseReportBuilder):
     def generate_charity_card(self, i, tax_id):
         """Generate charity detail as markdown card using MarkdownCardRenderer"""
         org_donations = self.charity_details[tax_id]
-        description = self.charity_descriptions.get(tax_id, "No description available")
-        has_graph = self.graph_info.get(tax_id) is not None
         evaluation = self.charity_evaluations.get(tax_id)
+
+        # Get description from charapi evaluation
+        description = getattr(evaluation, 'summary', None) if evaluation else None
+        if not description:
+            description = "No description available"
+        has_graph = self.graph_info.get(tax_id) is not None
 
         org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
         sector = org_donations["Charitable Sector"].iloc[0] if not org_donations.empty else "Unknown"

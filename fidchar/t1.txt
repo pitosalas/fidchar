@@ -1,0 +1,77 @@
+Top 15 Charities by Total Donations
+===================================
+Organization | Total Amount | Tax ID
+------------------------------------
+47 PALMER INC [FOCUS] | $641,900 | 04-3255536
+JEWISH RECONSTRUCTIONIST FEDERATION N Y | $228,600 | 13-2500888
+THE COMMONWEALTH FOR PRESERVING JUDAISM LTD [FOCUS] | $200,000 | 13-3190716
+COMMONWEALTH ZOOLOGICAL CORPORATION | $178,000 | 04-2103562
+SCHWAB CHARITABLE FUND | $160,000 | 94-3285362
+PLANNED PARENTHOOD FEDERATION OF [FOCUS] | $150,000 | 13-1644147
+INTERNATIONAL RESCUE COMMITTEE INC [FOCUS] | $150,000 | 13-5660870
+MEDECINS SANS FRONTIERES USA INC [FOCUS] | $150,000 | 13-3433452
+TIDES FOUNDATION | $150,000 | 51-0198509
+PARTNERS IN HEALTH A NONPROFIT CORPORATION [FOCUS] | $150,000 | 04-3567502
+LAKES REGION CONSERVATION TRUST | $150,000 | 02-6006033
+WOMEN FOR WOMEN INTERNATIONAL | $150,000 | 52-1838756
+NEWFOUND FOUNDATION INC | $150,000 | 20-2283667
+LOCAL EDUCATION OF MASSACHUSETTS INC | $150,000 | 20-3281486
+GALAPAGOS CONSERVANCY INC [FOCUS] | $150,000 | 13-3281486
+
+Footnotes:
+[1] FOCUS organizations are marked with a yellow badge next to their name.
+
+Source: Uploaded table image
+
+Stopped Recurring Donations
+===========================
+Organization | Total Amount | Donations | First Date | Last Date
+----------------------------------------------------------------
+AMERICAN CIVIL LIBERTIES UNION FOUNDATION OF MASSACHUSETTS | $22,750.00 | 8 | 01/12/2010 | 11/20/2019
+SOUTHERN POVERTY LAW CENTER INC | $13,500.00 | 8 | 03/24/2013 | 12/24/2018
+PURE WATER FOR THE WORLD INC | $10,250.00 | 10 | 09/04/2008 | 04/02/2020
+NORTH EAST ANIMAL SHELTER INC | $5,950.00 | 17 | 12/28/2006 | 01/20/2023
+LEXINGTON COMMUNITY FARM COALITION INC | $700.00 | 5 | 04/04/2012 | 12/04/2017
+
+Footnotes:
+[1] Stopped recurring donations total: $53,150.00
+
+Source: Uploaded table image
+
+Charity Evaluation Profiles
+==============================
+
+**47 PALMER INC**
+Tax ID: 04-3255365
+Sector: Arts and Culture
+Total Donations: $228,600.00
+Number of Donations: 28
+Charity Evaluation:
+  - Outstanding: 4 metrics
+  - Acceptable: 6 metrics
+  - Unacceptable: 4 metrics
+Alignment with Your Goals: 60/100
+Additional Notes:
+  - Focused on arts and humanities
+  - Spends just 3.7% on fundraising
+  - 4-star Charity Navigator rating
+  - Operating for 20 years
+  - Based in Massachusetts
+  - High spending on salaries (63.82% on programs)
+  - Shows moderate alignment with user goals and mixed financial precision
+
+**Jewish Reconstructionist Federation**
+Tax ID: 13-2500888
+Sector: Religion
+Total Donations: $228,600.00
+Number of Donations: 19
+Charity Evaluation:
+  - Outstanding: 1 metrics
+  - Acceptable: 5 metrics
+  - Unacceptable: 8 metrics
+Alignment with Your Goals: 0/100
+Additional Notes:
+  - Operating for 40 years
+  - Shows strong ethical compliance failures
+  - No recent Form 990 filing
+  - Financial history and expense details are missing

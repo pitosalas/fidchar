@@ -8,11 +8,10 @@ import pandas as pd
 class BaseReportBuilder:
     """Base class for report builders with shared state and common logic"""
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, focus_ein_set=None):
         self.df = df
         self.config = config
         self.charity_details = charity_details
-        self.charity_descriptions = charity_descriptions
         self.graph_info = graph_info
         self.charity_evaluations = charity_evaluations
         self.focus_ein_set = focus_ein_set or set()
@@ -25,7 +24,12 @@ class BaseReportBuilder:
         sector_value = org_donations["Charitable Sector"].iloc[0] if not org_donations.empty else None
         sector = sector_value if pd.notna(sector_value) else "N/A"
 
-        description = self.charity_descriptions.get(tax_id, "No description available")
+        # Get description from charapi evaluation
+        evaluation = self.charity_evaluations.get(tax_id)
+        description = getattr(evaluation, 'summary', None) if evaluation else None
+        if not description:
+            description = "No description available"
+
         total_donated = org_donations['Amount_Numeric'].sum()
         donation_count = len(org_donations)
 
@@ -45,7 +49,7 @@ class BaseReportBuilder:
 
     def truncate_description(self, description, max_length=150):
         """Truncate description - single implementation"""
-        if not description or description == "API credentials not configured":
+        if not description or description == "No description available":
             return None
         return description[:max_length] + "..." if len(description) > max_length else description
 

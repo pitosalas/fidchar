@@ -7,30 +7,48 @@ Uses Bootstrap CSS and report_generator renderers for cleaner code.
 
 import pandas as pd
 from datetime import datetime
+from typing import List
 import reports.base_report_builder as brb
 from report_generator.models import ReportTable, ReportCard, CardSection
 from report_generator.renderers import HTMLSectionRenderer, HTMLCardRenderer
 
 
-def generate_html_header_section(total_donations, total_amount, years_covered,
-                                one_time_total, stopped_total, top_charities_count):
-    """Generate the HTML header and executive summary sections - BOOTSTRAP VERSION"""
+def _build_html_document(tables: List[ReportTable], doc_title, custom_header, custom_footer, custom_styles, container_class):
+    """Build a complete HTML document with Bootstrap CSS.
+
+    Private helper function for building HTML reports with custom header/footer/styles.
+    """
+    hr = HTMLSectionRenderer()
+    sections = "\n".join(hr.render(t) for t in tables)
+
+    styles_block = f"<style>\n{custom_styles}\n</style>" if custom_styles else ""
+    header_block = custom_header if custom_header else ""
+    footer_block = custom_footer if custom_footer else ""
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Charitable Donation Analysis Report</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        @media print {{
-            .card {{ page-break-inside: avoid; }}
-        }}
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{doc_title}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  {styles_block}
 </head>
 <body>
-    <div class="container my-5">
-        <header class="text-center mb-5 pb-3 border-bottom">
+<div class="{container_class}">
+{header_block}
+{sections}
+{footer_block}
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>"""
+
+
+def generate_html_header_section(total_donations, total_amount, years_covered,
+                                one_time_total, stopped_total, top_charities_count):
+    """Generate the custom header and executive summary sections for fidchar report"""
+    return f"""        <header class="text-center mb-5 pb-3 border-bottom">
             <h1 class="display-4">Charitable Donation Analysis Report</h1>
             <p class="text-muted">Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
             <div class="alert alert-light border">
@@ -74,8 +92,8 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
 class HTMLReportBuilder(brb.BaseReportBuilder):
     """HTML report builder with inherited state - BOOTSTRAP VERSION"""
 
-    def __init__(self, df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set=None):
-        super().__init__(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations, focus_ein_set)
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, focus_ein_set=None):
+        super().__init__(df, config, charity_details, graph_info, charity_evaluations, focus_ein_set)
         self.table_renderer = HTMLSectionRenderer()
         self.card_renderer = HTMLCardRenderer()
 
@@ -190,9 +208,13 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
     def generate_charity_card_bootstrap(self, i, tax_id):
         """Generate charity detail as Bootstrap card"""
         org_donations = self.charity_details[tax_id]
-        description = self.charity_descriptions.get(tax_id, "No description available")
         has_graph = self.graph_info.get(tax_id) is not None
         evaluation = self.charity_evaluations.get(tax_id)
+
+        # Get description from charapi evaluation
+        description = getattr(evaluation, 'summary', None) if evaluation else None
+        if not description:
+            description = "No description available"
 
         org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
         sector = org_donations["Charitable Sector"].iloc[0] if not org_donations.empty else "Unknown"
@@ -263,16 +285,16 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
                        stopped_recurring, top_charities):
-        """Generate complete HTML report by combining all sections - BOOTSTRAP VERSION"""
+        """Generate complete HTML report using render_html_document base"""
         total_amount = category_totals.sum()
         total_donations = len(self.df)
         years_covered = f"{self.df['Year'].min()} - {self.df['Year'].max()}"
         one_time_total = one_time["Total_Amount"].sum()
         stopped_total = stopped_recurring["Total_Amount"].sum()
-
         top_charities_count = len(top_charities)
 
-        html_content = generate_html_header_section(
+        # Generate custom header
+        custom_header = generate_html_header_section(
             total_donations, total_amount, years_covered,
             one_time_total, stopped_total, top_charities_count
         )
@@ -282,7 +304,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         yearly_html = self.generate_yearly_table_bootstrap(yearly_amounts, yearly_counts)
         top_charities_html = self.generate_top_charities_bootstrap(top_charities)
 
-        html_content += generate_table_sections(
+        sections_html = generate_table_sections(
             categories_html,
             yearly_html,
             top_charities_html,
@@ -294,24 +316,39 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             top_charities_count
         )
 
-        html_content += f"""
+        # Generate charity cards section
+        charity_cards_html = f"""
     <div class="report-section">
         <h2 class="section-title">Detailed Analysis of Top {top_charities_count} Charities</h2>
         <p>Complete donation history and trend analysis for each of the top {top_charities_count} charities:</p>
 """
-
         for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
-            html_content += self.generate_charity_card_bootstrap(i, tax_id)
+            charity_cards_html += self.generate_charity_card_bootstrap(i, tax_id)
+        charity_cards_html += "\n    </div>"
 
-        html_content += """
-    </div>
+        # Combine body content: sections + charity cards
+        body_content = f"{sections_html}\n{charity_cards_html}"
+
+        # Generate footer
+        custom_footer = """
     <footer class="mt-5 pt-3 border-top text-center text-muted">
         <small>Generated by fidchar donation analysis tool</small>
-    </footer>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>"""
+    </footer>"""
+
+        # Custom styles for print
+        custom_styles = """@media print {
+            .card { page-break-inside: avoid; }
+        }"""
+
+        # Build complete HTML document
+        html_content = _build_html_document(
+            [],  # Empty tables list - we're using custom_header/footer for all content
+            doc_title="Charitable Donation Analysis Report",
+            custom_header=custom_header + body_content,
+            custom_footer=custom_footer,
+            custom_styles=custom_styles,
+            container_class="container my-5"
+        )
 
         with open("../output/donation_analysis.html", "w") as f:
             f.write(html_content)
