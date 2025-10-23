@@ -1,0 +1,185 @@
+body {
+    font-size: 10pt;
+    line-height: 1.3;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0;
+    padding: 0.5cm;
+}
+
+h1, .display-4 {
+    font-size: 18pt;
+    margin-bottom: 0.3cm;
+}
+h2, .section-title {
+    font-size: 14pt;
+    margin-top: 0.4cm;
+    margin-bottom: 0.2cm;
+}
+h3 {
+    font-size: 12pt;
+    margin-top: 0.3cm;
+    margin-bottom: 0.15cm;
+}
+h4 {
+    font-size: 11pt;
+    margin-bottom: 0.15cm;
+}
+
+p {
+    margin-bottom: 0.2cm;
+    font-size: 9pt;
+}
+
+.table {
+    font-size: 8pt;
+    margin-bottom: 0.3cm;
+}
+.table td,
+.table th {
+    padding: 0.1cm 0.15cm;
+}
+
+.card {
+    width: 48%;
+    display: inline-block;
+    margin-right: 2%;
+    vertical-align: top;
+}
+
+.card-header h4 {
+    font-size: 1.15rem;
+}
+
+.charity-badge {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 0.25cm;
+    font-size: 7pt;
+    line-height: 1.3;
+    overflow: hidden;
+}
+.card-body::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+ul, ol {
+    margin-bottom: 0.2cm;
+    padding-left: 0.8cm;
+}
+li {
+    margin-bottom: 0.08cm;
+    font-size: 7pt;
+    line-height: 1.3;
+}
+
+dl.row {
+    margin-bottom: 0.2cm;
+    display: block;
+    overflow: hidden;
+    clear: both;
+}
+dl.row::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+dt {
+    padding: 0;
+    margin: 0;
+    font-size: 7pt;
+    line-height: 1.3;
+    float: none;
+    width: auto;
+    display: inline;
+    font-weight: 600;
+}
+dd {
+    padding: 0;
+    margin: 0;
+    font-size: 7pt;
+    line-height: 1.3;
+    float: none;
+    width: auto;
+    display: inline;
+}
+dt::after {
+    content: " ";
+}
+dd::after {
+    content: "";
+    display: block;
+    margin-bottom: 0.05cm;
+}
+
+img {
+    max-width: 100%;
+    max-height: 3.5cm;
+    height: auto;
+}
+
+.alert {
+    padding: 0.2cm 0.3cm;
+    margin-bottom: 0.3cm;
+    font-size: 9pt;
+}
+.badge {
+    font-size: 7pt;
+    padding: 0.1cm 0.15cm;
+}
+
+.row {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.report-section {
+    overflow: hidden;
+}
+.report-section::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+header {
+    margin-bottom: 0.4cm;
+    padding-bottom: 0.2cm;
+}
+
+footer {
+    margin-top: 0.4cm;
+    padding-top: 0.2cm;
+    font-size: 8pt;
+}
+
+.definitions-content {
+    font-size: 8pt;
+    line-height: 1.3;
+}
+.definitions-content h1 {
+    font-size: 14pt;
+    margin-bottom: 0.3cm;
+}
+.definitions-content h2 {
+    font-size: 12pt;
+    margin-top: 0.3cm;
+    margin-bottom: 0.2cm;
+}
+.definitions-content h3 {
+    font-size: 10pt;
+    margin-top: 0.2cm;
+    margin-bottom: 0.1cm;
+}
+.definitions-content p {
+    margin-bottom: 0.15cm;
+}

@@ -11,9 +11,11 @@ from typing import List
 import reports.base_report_builder as brb
 from report_generator.models import ReportTable, ReportCard, CardSection
 from report_generator.renderers import HTMLSectionRenderer, HTMLCardRenderer
+import shutil
+import os
 
 
-def _build_html_document(tables: List[ReportTable], doc_title, custom_header, custom_footer, custom_styles, container_class):
+def _build_html_document(tables: List[ReportTable], doc_title, custom_header, custom_footer, custom_styles, container_class, css_files=None):
     """Build a complete HTML document with Bootstrap CSS.
 
     Private helper function for building HTML reports with custom header/footer/styles.
@@ -22,6 +24,13 @@ def _build_html_document(tables: List[ReportTable], doc_title, custom_header, cu
     sections = "\n".join(hr.render(t) for t in tables)
 
     styles_block = f"<style>\n{custom_styles}\n</style>" if custom_styles else ""
+
+    # Build CSS links for multiple external files
+    css_links = ""
+    if css_files:
+        for css_file in css_files:
+            css_links += f'  <link rel="stylesheet" href="{css_file}">\n'
+
     header_block = custom_header if custom_header else ""
     footer_block = custom_footer if custom_footer else ""
 
@@ -32,7 +41,7 @@ def _build_html_document(tables: List[ReportTable], doc_title, custom_header, cu
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{doc_title}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  {styles_block}
+{css_links}  {styles_block}
 </head>
 <body>
 <div class="{container_class}">
@@ -265,29 +274,6 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             )
         ]
 
-        # Add mission statement if available
-        mission_text = None
-        if evaluation:
-            # Try to get mission from evaluation
-            mission_text = getattr(evaluation, 'mission', None)
-
-            # If no mission from API, generate from NTEE code
-            if not mission_text:
-                from charapi.data.ntee_mapper import NTEEMapper
-                # Get NTEE code from metrics
-                from charapi.data.charity_evaluation_result import MetricCategory
-                mission_metric = next((m for m in evaluation.metrics if m.category == MetricCategory.PREFERENCE and "Mission" in m.name), None)
-                if mission_metric and mission_metric.value:
-                    ntee_code = mission_metric.value
-                    mission_text = NTEEMapper.get_description(ntee_code)
-
-        if mission_text:
-            sections.append(CardSection(
-                section_type="text",
-                title="Mission:",
-                content=mission_text
-            ))
-
         if evaluation:
             sections.append(CardSection(
                 section_type="list",
@@ -300,17 +286,12 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             ))
 
             if evaluation.alignment_score is not None and evaluation.alignment_score > 0:
-                # Get alignment badge (star rating) from centralized method
-                alignment_score = evaluation.alignment_score
-                badge_info = self.get_alignment_badge_info(alignment_score)
-
-                badge_html = f"<span style='background:{badge_info['bg_color']}; color:{badge_info['text_color']}; padding:4px 8px; border-radius:4px; font-size:14px; font-weight:600;'>ALIGNMENT: {badge_info['stars']}</span>"
-
                 # Get preference metrics breakdown
+                alignment_score = evaluation.alignment_score
                 from charapi.data.charity_evaluation_result import MetricCategory
                 preference_metrics = [m for m in evaluation.metrics if m.category == MetricCategory.PREFERENCE]
 
-                breakdown_items = [f"<strong>Overall Score: {alignment_score}/100</strong> {badge_html}"]
+                breakdown_items = [f"<strong>Overall Score: {alignment_score}/100</strong>"]
                 for metric in preference_metrics:
                     status_icon = "⭐" if metric.status.value == "outstanding" else "✓" if metric.status.value == "acceptable" else "⚠"
                     breakdown_items.append(f"{status_icon} {metric.name}: {metric.display_value}")
@@ -330,11 +311,11 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         graph_filename = f"images/charity_{i:02d}_{tax_id.replace('-', '')}.png" if has_graph else None
 
         card = ReportCard(
-            title=f"{i}. {org_name_with_badges}",
+            title=f"{org_name_with_badges}",
             badge=None,  # Badges are now in the title
             sections=sections,
             image_url=graph_filename,
-            image_position="right"
+            image_position="right"  # Right position - will need custom rendering
         )
 
         return self.card_renderer.render(card)
@@ -396,67 +377,9 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         <small>Generated by fidchar donation analysis tool</small>
     </footer>"""
 
-        # Custom styles for print/PDF and definitions
-        custom_styles = """
-        /* Reduce table row padding for more compact display */
-        .table td,
-        .table th {
-            padding: 0.4rem 0.5rem;
-        }
-
-        /* Definitions section styling */
-        .definitions-content {
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-        .definitions-content h1 {
-            font-size: 2rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #dee2e6;
-            padding-bottom: 0.5rem;
-        }
-        .definitions-content h2 {
-            font-size: 1.4rem;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            color: #0d6efd;
-        }
-        .definitions-content h3 {
-            font-size: 1.1rem;
-            margin-top: 1.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-        .definitions-content p {
-            margin-bottom: 0.75rem;
-        }
-        .definitions-content ul {
-            margin-bottom: 1rem;
-        }
-
-        @media print {
-            .report-section {
-                page-break-after: always;
-                page-break-inside: avoid;
-            }
-            .card {
-                page-break-inside: avoid;
-                page-break-after: auto;
-            }
-            /* Prevent page break after the last section */
-            .report-section:last-of-type {
-                page-break-after: auto;
-            }
-            /* Keep executive summary header with its content */
-            .section-title {
-                page-break-after: avoid;
-            }
-            /* Keep definition headers with their content */
-            .definitions-content h2,
-            .definitions-content h3 {
-                page-break-after: avoid;
-            }
-        }"""
+        # External CSS files - both screen and print styles are now in separate files
+        # Screen styles: reports/styles.css
+        # Print styles: reports/print.css
 
         # Build complete HTML document
         html_content = _build_html_document(
@@ -464,12 +387,255 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             doc_title="Charitable Donation Analysis Report",
             custom_header=custom_header + body_content,
             custom_footer=custom_footer,
-            custom_styles=custom_styles,
-            container_class="container my-5"
+            custom_styles=None,  # No embedded styles - using external CSS files
+            container_class="container my-5",
+            css_files=["colors.css", "styles.css", "print.css"]  # Reference external CSS files
         )
+
+        # Copy CSS files to output directory
+        for css_file in ["colors.css", "styles.css", "print.css"]:
+            css_source = os.path.join(os.path.dirname(__file__), css_file)
+            css_dest = f"../output/{css_file}"
+            shutil.copy(css_source, css_dest)
 
         with open("../output/donation_analysis.html", "w") as f:
             f.write(html_content)
+
+
+# Placeholder to mark where @media print used to be - now moved to print.css
+# The print CSS has been moved to reports/print.css for easier maintenance
+if False:
+    unused_print_css = """
+        @media print {
+            /* Scale down overall size for article-like appearance */
+            body {
+                font-size: 10pt;
+                line-height: 1.3;
+            }
+
+            /* Reduce container width and margins */
+            .container {
+                max-width: 100%;
+                margin: 0;
+                padding: 0.5cm;
+            }
+
+            /* Compact headers */
+            h1, .display-4 {
+                font-size: 18pt;
+                margin-bottom: 0.3cm;
+            }
+            h2, .section-title {
+                font-size: 14pt;
+                margin-top: 0.4cm;
+                margin-bottom: 0.2cm;
+            }
+            h3 {
+                font-size: 12pt;
+                margin-top: 0.3cm;
+                margin-bottom: 0.15cm;
+            }
+            h4 {
+                font-size: 11pt;
+                margin-bottom: 0.15cm;
+            }
+
+            /* Compact paragraphs and spacing */
+            p {
+                margin-bottom: 0.2cm;
+                font-size: 9pt;
+            }
+
+            /* Compact tables */
+            .table {
+                font-size: 8pt;
+                margin-bottom: 0.3cm;
+            }
+            .table td,
+            .table th {
+                padding: 0.1cm 0.15cm;
+            }
+
+            /* Compact cards - 2x2 grid (4 per page) */
+            .card {
+                width: 48%;
+                float: left;
+                margin-right: 2%;
+                margin-bottom: 0.3cm;
+                page-break-inside: avoid;
+                height: auto;
+                max-height: 12cm;
+                box-sizing: border-box;
+            }
+            /* Clear float every 2 cards to create rows */
+            .card:nth-of-type(2n) {
+                margin-right: 0;
+            }
+            .card:nth-of-type(2n+1) {
+                clear: left;
+            }
+            /* Force page break and clear floats after every 4th card */
+            .card:nth-of-type(4n) {
+                page-break-after: always;
+                margin-bottom: 0;
+            }
+            .card:nth-of-type(4n)::after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+            .card-header {
+                padding: 0.2cm 0.3cm;
+                font-size: 9pt;
+            }
+            .card-body {
+                padding: 0.25cm;
+                font-size: 7pt;
+                line-height: 1.3;
+                overflow: hidden;
+            }
+            .card-body::after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+
+            /* Compact lists */
+            ul, ol {
+                margin-bottom: 0.2cm;
+                padding-left: 0.8cm;
+            }
+            li {
+                margin-bottom: 0.08cm;
+                font-size: 7pt;
+                line-height: 1.3;
+            }
+
+            /* Compact definition lists - remove column layout for print */
+            dl.row {
+                margin-bottom: 0.2cm;
+                display: block;
+                overflow: hidden;
+                clear: both;
+            }
+            dl.row::after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+            dt {
+                padding: 0;
+                margin: 0;
+                font-size: 7pt;
+                line-height: 1.3;
+                float: none;
+                width: auto;
+                display: inline;
+                font-weight: 600;
+            }
+            dd {
+                padding: 0;
+                margin: 0;
+                font-size: 7pt;
+                line-height: 1.3;
+                float: none;
+                width: auto;
+                display: inline;
+            }
+            dt::after {
+                content: " ";
+            }
+            dd::after {
+                content: "";
+                display: block;
+                margin-bottom: 0.05cm;
+            }
+
+            /* Reduce image sizes */
+            img {
+                max-width: 100%;
+                max-height: 3.5cm;
+                height: auto;
+            }
+
+            /* Compact alerts and badges */
+            .alert {
+                padding: 0.2cm 0.3cm;
+                margin-bottom: 0.3cm;
+                font-size: 9pt;
+            }
+            .badge {
+                font-size: 7pt;
+                padding: 0.1cm 0.15cm;
+            }
+
+            /* Hide Bootstrap grid spacing */
+            .row {
+                margin-left: 0;
+                margin-right: 0;
+            }
+
+            /* Page break controls */
+            .report-section {
+                page-break-after: auto;
+                page-break-inside: auto;
+                overflow: hidden;
+            }
+            .report-section::after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+            .report-section:last-of-type {
+                page-break-after: auto;
+            }
+            /* Only prevent page breaks inside non-card sections */
+            .report-section:not(:has(.card)) {
+                page-break-inside: avoid;
+                page-break-after: always;
+            }
+            .section-title {
+                page-break-after: avoid;
+            }
+
+            /* Compact header section */
+            header {
+                margin-bottom: 0.4cm;
+                padding-bottom: 0.2cm;
+            }
+
+            /* Compact footer */
+            footer {
+                margin-top: 0.4cm;
+                padding-top: 0.2cm;
+                font-size: 8pt;
+            }
+
+            /* Definitions section */
+            .definitions-content {
+                font-size: 8pt;
+                line-height: 1.3;
+            }
+            .definitions-content h1 {
+                font-size: 14pt;
+                margin-bottom: 0.3cm;
+            }
+            .definitions-content h2 {
+                font-size: 12pt;
+                margin-top: 0.3cm;
+                margin-bottom: 0.2cm;
+                page-break-after: avoid;
+            }
+            .definitions-content h3 {
+                font-size: 10pt;
+                margin-top: 0.2cm;
+                margin-bottom: 0.1cm;
+                page-break-after: avoid;
+            }
+            .definitions-content p {
+                margin-bottom: 0.15cm;
+            }
+        }"""  # End of old print CSS - kept for reference only, not used
 
 
 def generate_table_sections(categories_html, yearly_html, top_charities_html,
@@ -508,15 +674,19 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
     </div>"""
         elif section_id == "patterns":
             if builder:
-                one_time_table = builder.generate_one_time_table_bootstrap(one_time)
+                # Get configurable limits from section options
+                max_one_time = section_options.get("max_one_time_shown", 20)
+                max_stopped = section_options.get("max_stopped_shown", 15)
+
+                one_time_table = builder.generate_one_time_table_bootstrap(one_time, max_shown=max_one_time)
                 one_time_total = one_time["Total_Amount"].sum()
                 one_time_count = len(one_time)
-                overflow_one_time = max(0, one_time_count - 20)
+                overflow_one_time = max(0, one_time_count - max_one_time)
 
-                stopped_table = builder.generate_stopped_table_bootstrap(stopped_recurring)
+                stopped_table = builder.generate_stopped_table_bootstrap(stopped_recurring, max_shown=max_stopped)
                 stopped_total = stopped_recurring["Total_Amount"].sum()
                 stopped_count = len(stopped_recurring)
-                overflow_stopped = max(0, stopped_count - 15)
+                overflow_stopped = max(0, stopped_count - max_stopped)
 
                 html_content += f"{one_time_table}"
                 if overflow_one_time > 0:
@@ -533,7 +703,9 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         <p style="margin-top: 15px;"><strong>Stopped recurring donations total:</strong> ${stopped_total:,.2f}</p>"""
         elif section_id == "recurring_summary":
             if builder:
-                data = builder.prepare_recurring_summary_data()
+                # Get configurable limit from section options
+                max_recurring = section_options.get("max_recurring_shown", 20)
+                data = builder.prepare_recurring_summary_data(max_shown=max_recurring)
                 html_content += builder.generate_recurring_summary_section_html(data)
 
     return html_content

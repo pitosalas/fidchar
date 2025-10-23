@@ -129,6 +129,44 @@ class BaseReportBuilder:
         """Check if a given EIN is a recurring charity"""
         return ein in self.recurring_ein_set
 
+    def for_consideration(self, ein):
+        """Check if a charity meets 'for consideration' criteria.
+
+        A charity is 'for consideration' if it meets quality thresholds:
+        - Alignment score >= min_alignment_score
+        - Evaluation score >= min_evaluation_score
+
+        Evaluation score is calculated as percentage of metrics that are acceptable or outstanding.
+        """
+        for_consideration_config = self.config.get("for_consideration", {})
+
+        if not for_consideration_config.get("enabled", False):
+            return False
+
+        evaluation = self.charity_evaluations.get(ein)
+        if not evaluation:
+            return False
+
+        # Check alignment score
+        min_alignment = for_consideration_config.get("min_alignment_score", 70)
+        alignment_score = getattr(evaluation, 'alignment_score', None)
+        if alignment_score is None or alignment_score < min_alignment:
+            return False
+
+        # Calculate evaluation score (percentage of metrics that are acceptable or outstanding)
+        total_metrics = evaluation.total_metrics
+        if total_metrics == 0:
+            return False
+
+        acceptable_or_better = evaluation.outstanding_count + evaluation.acceptable_count
+        evaluation_score = (acceptable_or_better / total_metrics) * 100
+
+        min_evaluation = for_consideration_config.get("min_evaluation_score", 70)
+        if evaluation_score < min_evaluation:
+            return False
+
+        return True
+
     def get_alignment_status(self, ein):
         """Get alignment status for a charity based on alignment score.
 
@@ -176,25 +214,24 @@ class BaseReportBuilder:
         is_recurring = self.is_recurring_charity(ein)
         alignment_status = self.get_alignment_status(ein)
 
-        # Build HTML badges
+        # Build HTML badges with CSS classes
         badges_html = ""
 
         # Recurring badge
         if is_recurring:
-            badges_html += " <span style=\"background:#ffd24d; color:#333; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;\">RECURRING</span>"
+            badges_html += f" <span class=\"charity-badge\">RECUR</span>"
 
-        # Alignment badge with star rating
+        # For Consideration badge (only if NOT recurring)
+        if not is_recurring and self.for_consideration(ein):
+            badges_html += f" <span class=\"charity-badge\">CONSDR</span>"
+
+        # Alignment badge with percentage
         if ein in self.charity_evaluations:
             evaluation = self.charity_evaluations[ein]
             alignment_score = getattr(evaluation, 'alignment_score', None)
 
             if alignment_score is not None and alignment_score > 0:
-                # Get badge info from centralized method
-                badge_info = self.get_alignment_badge_info(alignment_score)
-
-                # Add border for transparent background
-                border_style = "border:1px solid #ddd;" if badge_info["bg_color"] == "transparent" else ""
-                badges_html += f" <span style=\"background:{badge_info['bg_color']}; color:{badge_info['text_color']}; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600; {border_style}\">ALIGNMENT: {badge_info['stars']}</span>"
+                badges_html += f" <span class=\"charity-badge\">ALIGN: {alignment_score}%</span>"
 
         html_org = org_name + badges_html
 
@@ -259,11 +296,14 @@ class BaseReportBuilder:
         rows.sort(key=lambda r: r['total_donated'], reverse=True)
         return rows
 
-    def prepare_recurring_summary_data(self):
+    def prepare_recurring_summary_data(self, max_shown=20):
         """Prepare focus charities summary with last donation date and total donated.
 
         Uses the recurring_ein_set which contains ALL focus charities identified from the dataset,
         not just those in the top 10 evaluated charities.
+
+        Args:
+            max_shown: Maximum number of charities to include in the table (default: 20)
         """
         if not self.recurring_ein_set:
             return None
@@ -286,10 +326,14 @@ class BaseReportBuilder:
         # Sort by total donated descending
         rows.sort(key=lambda r: r['total_donated'], reverse=True)
 
+        # Limit to max_shown
+        total_count = len(rows)
+        rows = rows[:max_shown]
+
         total_focus_donated = sum(r['total_donated'] for r in rows)
 
         return {
             'rows': rows,
-            'count': len(rows),
+            'count': total_count,  # Total count (before limiting)
             'total': total_focus_donated
         }

@@ -1,0 +1,20 @@
+@media print {
+    * {
+        color: black !important;
+        font-size: 70% !important;
+    }
+
+    .card {
+        page-break-inside: avoid;
+    }
+
+    h2, h3, .section-title {
+        page-break-after: avoid;
+    }
+
+    .definitions-content {
+        page-break-before: always;
+        column-count: 2;
+        column-gap: 2rem;
+    }
+}

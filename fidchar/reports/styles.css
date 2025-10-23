@@ -1,0 +1,86 @@
+.report-section .card {
+    width: 48%;
+    display: inline-block;
+    margin-right: 2%;
+    margin-bottom: 10px;
+    vertical-align: top;
+}
+
+.detail-card {
+    border: 1px solid #000;
+}
+
+.detail-card .row {
+    border-bottom: 1px solid #000;
+}
+
+.detail-card .row:last-child {
+    border-bottom: none;
+}
+
+.detail-card .col-md-7,
+.detail-card .col-md-5,
+.detail-card .col-md-6 {
+    border-right: 1px solid #000;
+}
+
+.detail-card .col-md-7:last-child,
+.detail-card .col-md-5:last-child,
+.detail-card .col-md-6:last-child {
+    border-right: none;
+}
+
+.detail-card li {
+    font-size: 0.95rem;
+}
+
+.card-header h4 {
+    font-size: 1.15rem;
+}
+
+.charity-badge {
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.detail-subtitle {
+    display: block;
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
+    font-size: 0.95rem;
+}
+
+.detail-narrative {
+    /* line-height: 1.; */
+    margin-top: 0.5em;
+    font-size: 0.95rem;
+}
+
+.definitions-content {
+    font-size: 0.85rem;
+    line-height: 1.3;
+    column-count: 2;
+    column-gap: 2rem;
+}
+
+.definitions-content h1 {
+    font-size: 1.3rem;
+    margin-top: 0.5em;
+    margin-bottom: 0.3em;
+}
+
+.definitions-content h2 {
+    font-size: 1.1rem;
+    margin-top: 0.4em;
+    margin-bottom: 0.2em;
+}
+
+.definitions-content h3 {
+    font-size: 1rem;
+    margin-top: 0.3em;
+    margin-bottom: 0.15em;
+}
+
+.definitions-content p {
+    margin-bottom: 0.3em;
+}

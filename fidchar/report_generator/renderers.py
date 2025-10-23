@@ -50,37 +50,62 @@ class HTMLCardRenderer:
             "list": self._render_list_section,
             "progress_bar": self._render_progress_section,
             "table": self._render_table_section,
+            "two_column": self._render_two_column_section,
         }
 
     def render(self, card: ReportCard) -> str:
         html = []
-        html.append("<div class='card mb-4'>")
+        html.append("<div class='card mb-4 detail-card'>")
 
         header_class = "card-header bg-primary text-white"
         badge_html = f" <span class='badge bg-warning text-dark float-end'>{card.badge}</span>" if card.badge else ""
-        html.append(f"<div class='{header_class}'><h4 class='mb-0'>{card.title}{badge_html}</h4></div>")
+
+        # Split title into charity name and badges
+        title_parts = card.title.split('<span class="charity-badge">')
+        charity_name = title_parts[0].strip()
+        badges = ''.join([f'<span class="charity-badge">{part}' for part in title_parts[1:]]) if len(title_parts) > 1 else ''
+
+        html.append(f"<div class='{header_class}'>")
+        html.append("<div class='row align-items-center'>")
+        html.append(f"<div class='col-9'><h4 class='mb-0'>{charity_name}</h4></div>")
+        html.append(f"<div class='col-3 text-end'>{badges}{badge_html}</div>")
+        html.append("</div>")
+        html.append("</div>")
 
         html.append("<div class='card-body'>")
 
-        if card.image_url and card.image_position in ["top"]:
-            html.append(f"<img src='{card.image_url}' class='img-fluid mb-3' alt='Visual'>")
+        # Separate sections by type
+        key_value_sections = [s for s in card.sections if s.section_type == "key_value"]
+        list_sections = [s for s in card.sections if s.section_type == "list"]
+        text_sections = [s for s in card.sections if s.section_type == "text"]
 
-        if card.image_url and card.image_position in ["left", "right"]:
-            html.append("<div class='row'>")
-            content_col = "col-md-8" if card.image_position == "right" else "col-md-8 order-md-2"
-            image_col = "col-md-4" if card.image_position == "right" else "col-md-4 order-md-1"
-            html.append(f"<div class='{content_col}'>")
-
-        for section in card.sections:
+        # First row: small table (tax-id, etc.) and graph
+        html.append("<div class='row'>")
+        html.append("<div class='col-md-7'>")
+        for section in key_value_sections:
             html.append(self._render_section(section))
+        html.append("</div>")
+        if card.image_url:
+            html.append(f"<div class='col-md-5'><img src='{card.image_url}' class='img-fluid' alt='Visual'></div>")
+        html.append("</div>")
 
-        if card.image_url and card.image_position in ["left", "right"]:
-            html.append("</div>")
-            html.append(f"<div class='{image_col}'><img src='{card.image_url}' class='img-fluid' alt='Visual'></div>")
+        # Second row: charity evaluation and alignment (side by side)
+        if list_sections:
+            html.append("<div class='row'>")
+            for section in list_sections:
+                html.append("<div class='col-md-6'>")
+                html.append(self._render_section(section))
+                html.append("</div>")
             html.append("</div>")
 
-        if card.image_url and card.image_position == "bottom":
-            html.append(f"<img src='{card.image_url}' class='img-fluid mt-3' alt='Visual'>")
+        # Third row: narrative (full width)
+        if text_sections:
+            html.append("<div class='row'>")
+            html.append("<div class='col-12'>")
+            for section in text_sections:
+                html.append(self._render_section(section))
+            html.append("</div>")
+            html.append("</div>")
 
         html.append("</div>")
         html.append("</div>")
@@ -96,7 +121,7 @@ class HTMLCardRenderer:
         html = []
         if section.title:
             html.append(f"<strong>{section.title}</strong>")
-        html.append(f"<p class='text-muted'>{section.content}</p>")
+        html.append(f"<p class='detail-narrative'>{section.content}</p>")
         return "\n".join(html)
 
     def _render_key_value_section(self, section: CardSection) -> str:
@@ -106,8 +131,8 @@ class HTMLCardRenderer:
             html.append(f"<h5>{section.title}</h5>")
         html.append("<dl class='row'>")
         for key, value in section.content.items():
-            html.append(f"<dt class='col-sm-4'>{key}:</dt>")
-            html.append(f"<dd class='col-sm-8'>{value}</dd>")
+            html.append(f"<dt class='col-sm-5'>{key}:</dt>")
+            html.append(f"<dd class='col-sm-7'>{value}</dd>")
         html.append("</dl>")
         return "\n".join(html)
 
@@ -115,7 +140,7 @@ class HTMLCardRenderer:
         """Render list of items"""
         html = []
         if section.title:
-            html.append(f"<strong>{section.title}</strong>")
+            html.append(f"<strong class='detail-subtitle'>{section.title}</strong>")
         html.append("<ul class='mb-2'>")
         for item in section.content:
             html.append(f"<li>{item}</li>")
@@ -158,4 +183,34 @@ class HTMLCardRenderer:
                 html.append(f"<td>{cell}</td>")
             html.append("</tr>")
         html.append("</tbody></table>")
+        return "\n".join(html)
+
+    def _render_two_column_section(self, section: CardSection) -> str:
+        """Render two-column layout with titles and lists"""
+        html = []
+        html.append("<div class='row'>")
+
+        # Left column
+        left_data = section.content.get('left', {})
+        html.append("<div class='col-md-6'>")
+        if left_data.get('title'):
+            html.append(f"<strong>{left_data['title']}</strong>")
+        html.append("<ul class='mb-2'>")
+        for item in left_data.get('items', []):
+            html.append(f"<li>{item}</li>")
+        html.append("</ul>")
+        html.append("</div>")
+
+        # Right column
+        right_data = section.content.get('right', {})
+        html.append("<div class='col-md-6'>")
+        if right_data.get('title'):
+            html.append(f"<strong>{right_data['title']}</strong>")
+        html.append("<ul class='mb-2'>")
+        for item in right_data.get('items', []):
+            html.append(f"<li>{item}</li>")
+        html.append("</ul>")
+        html.append("</div>")
+
+        html.append("</div>")
         return "\n".join(html)
