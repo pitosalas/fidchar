@@ -14,7 +14,8 @@
 
     .definitions-content {
         page-break-before: always;
-        column-count: 2;
-        column-gap: 2rem;
+        column-count: 2 !important;
+        column-gap: 2rem !important;
+        column-rule: 1px solid #000 !important;
     }
 }
