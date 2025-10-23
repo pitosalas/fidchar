@@ -11,6 +11,7 @@ import core.analysis as an
 import core.visualization as vis
 import reports.charity_evaluator as ev
 import reports.html_report_builder as hrb
+import reports.base_report_builder as brb
 
 
 def load_config():
@@ -58,17 +59,39 @@ def main():
         # Analyze donation patterns
         one_time, stopped_recur = an.analyze_donation_patterns(df)
 
-        # Analyze top charities using config
+        # Get all charities for evaluation (we'll filter later)
         top_char_cfg = _get_section_options(config, "top_charities")
         top_n = top_char_cfg.get("count", 10)
-        top_charities, char_details, graph_info = dp.analyze_top_charities(df, top_n)
 
-        # Get charity evaluations from charapi (includes recurring determination)
+        # Get ALL charities by donation amount (not limited yet)
+        all_charities = df.groupby("Tax ID").agg({
+            "Amount_Numeric": "sum",
+            "Organization": "first"
+        }).sort_values("Amount_Numeric", ascending=False)
+
+        # Get charity evaluations for ALL charities (includes recurring determination)
         charapi_cfg_path = config.get("charapi_config_path")
         recurring_config = config.get("recurring_charity")
         char_evals, recurring_ein_set = ev.get_charity_evaluations(
-            top_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
+            all_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
         )
+
+        # Now filter to top N by amount + those meeting for_consideration criteria
+        top_by_amount = set(all_charities.head(top_n).index)
+
+        # Add charities meeting for_consideration criteria
+        # Use BaseReportBuilder's for_consideration method to avoid duplicating logic
+        temp_builder = brb.BaseReportBuilder(df, config, {}, {}, char_evals, set())
+        for ein in all_charities.index:
+            if ein not in top_by_amount and temp_builder.for_consideration(ein):
+                top_by_amount.add(ein)
+
+        # Filter all_charities to only include selected EINs, then sort alphabetically
+        top_charities = all_charities.loc[list(top_by_amount)].sort_values("Organization")
+
+        # Get detailed info for the filtered charities
+        char_details = an.get_charity_details(df, top_charities)
+        graph_info = vis.create_charity_yearly_graphs(top_charities, char_details)
 
         # Generate HTML report
         print("Generating HTML report...")

@@ -4,7 +4,6 @@
 Handles all pandas groupby operations and statistical analysis.
 """
 
-import pandas as pd
 from datetime import datetime
 
 
@@ -15,7 +14,6 @@ def analyze_by_category(df):
 
 
 def analyze_by_year(df):
-    """Analyze donations by year"""
     yearly_amounts = df.groupby("Year")["Amount_Numeric"].sum().sort_index()
     yearly_counts = df.groupby("Year").size().sort_index()
     return yearly_amounts, yearly_counts
@@ -79,16 +77,7 @@ def determine_recurring_charities(df, count, min_years, min_amount):
     1. You donated to them in the previous calendar year
     2. In the last 'count' years, you donated in at least 'min_years' years
     3. Each qualifying year had donations >= min_amount
-
-    Args:
-        df: DataFrame with donation data
-        count: Number of recent years to examine (e.g., 15)
-        min_years: Minimum years with donations >= min_amount (e.g., 5)
-        min_amount: Minimum donation amount per year (e.g., 1000)
-
-    Returns:
-        Set of Tax IDs that are recurring charities
-    """
+   """
     current_year = datetime.now().year
     previous_year = current_year - 1
 

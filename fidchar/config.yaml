@@ -35,14 +35,18 @@ sections:
 
   - name: recurring_summary
     # Recurring Charities Summary - simple list with last donation and total
+    options:
+      max_recurring_shown: 100
 
   - name: patterns
     # One-Time vs Recurring Donation Patterns
-    # options:
-    #   max_one_time_shown: 20
+    options:
+      max_one_time_shown: 100
+      max_stopped_shown:  100
+    
 
   - name: detailed
-    # Detailed Analysis of Top 10 Charities
+    # Detailed Analysis of Top Charities
     # options:
     #   include_descriptions: true
 
@@ -62,3 +66,10 @@ recurring_charity:
   count: 15           # Look at last 15 years
   min_years: 5        # Must have donated in at least 5 of those years
   min_amount: 1000    # Each qualifying year must have >= $1000 in donations
+
+# For consideration criteria (charities to include in detailed analysis even if not in top N)
+# These charities meet quality thresholds and warrant consideration
+for_consideration:
+  enabled: true
+  min_alignment_score: 70        # Minimum alignment score (0-100)
+  min_evaluation_score: 70       # Minimum evaluation score (0-100, based on outstanding/acceptable metrics)

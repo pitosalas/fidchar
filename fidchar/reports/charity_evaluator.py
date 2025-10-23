@@ -4,10 +4,9 @@
 Handles all charapi dependencies and evaluation calls.
 """
 
-import time
 import yaml
 import traceback
-from charapi import evaluate_charity
+from charapi.api.charity_evaluator import batch_evaluate
 import core.analysis as an
 
 def get_charity_evaluations(top_charities, charapi_config_path, donation_df, recurring_config=None,
@@ -50,19 +49,24 @@ def get_charity_evaluations(top_charities, charapi_config_path, donation_df, rec
 
     print(f"Evaluating {len(charities_to_evaluate)} charities (top + recurring + one-time + stopped)")
 
-    for i, tax_id in enumerate(charities_to_evaluate, 1):
-        try:
-            result = evaluate_charity(tax_id, charapi_config_path)
-            evaluations[tax_id] = result
-            time.sleep(0.1)
-        except Exception as e:
-            print(f"Warning: Could not evaluate charity {tax_id}: {e}")
-            # Get the last frame from traceback (where the error actually occurred)
-            tb_lines = traceback.format_exc().splitlines()
-            # Find the actual source line (skip the error message at the end)
-            for line in reversed(tb_lines[:-1]):
-                if 'File "' in line or '.py", line' in line:
-                    print(f"  {line.strip()}")
-                    break
+    # Convert set to list for batch processing
+    charity_list = list(charities_to_evaluate)
+
+    try:
+        # Evaluate all charities at once with shared config/clients
+        results = batch_evaluate(charity_list, charapi_config_path)
+
+        # Convert list results to dict
+        evaluations = {ein: result for ein, result in zip(charity_list, results)}
+
+    except Exception as e:
+        print(f"Warning: Batch evaluation failed: {e}")
+        # Get the last frame from traceback (where the error actually occurred)
+        tb_lines = traceback.format_exc().splitlines()
+        # Find the actual source line (skip the error message at the end)
+        for line in reversed(tb_lines[:-1]):
+            if 'File "' in line or '.py", line' in line:
+                print(f"  {line.strip()}")
+                break
 
     return evaluations, recurring_charities

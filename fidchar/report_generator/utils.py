@@ -5,7 +5,7 @@ from report_generator.profiles import get_charity_profiles
 
 def render_html_document(tables: List[ReportTable], doc_title="Donation Reports",
                          custom_header=None, custom_footer=None, custom_styles=None,
-                         container_class="container my-4") -> str:
+                         css_files=None, container_class="container my-4") -> str:
     """Render a complete HTML document with Bootstrap CSS.
 
     Args:
@@ -14,6 +14,7 @@ def render_html_document(tables: List[ReportTable], doc_title="Donation Reports"
         custom_header: Optional HTML to insert after opening container div
         custom_footer: Optional HTML to insert before closing container div
         custom_styles: Optional CSS to include in <style> tag
+        css_files: Optional list of paths to external CSS files
         container_class: CSS classes for main container div
 
     Returns:
@@ -23,6 +24,7 @@ def render_html_document(tables: List[ReportTable], doc_title="Donation Reports"
     sections = "\n".join(hr.render(t) for t in tables)
 
     styles_block = f"<style>\n{custom_styles}\n</style>" if custom_styles else ""
+    css_links = "\n  ".join(f'<link rel="stylesheet" href="{css_file}">' for css_file in (css_files or []))
     header_block = custom_header if custom_header else ""
     footer_block = custom_footer if custom_footer else ""
 
@@ -33,6 +35,7 @@ def render_html_document(tables: List[ReportTable], doc_title="Donation Reports"
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{doc_title}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  {css_links}
   {styles_block}
 </head>
 <body>
