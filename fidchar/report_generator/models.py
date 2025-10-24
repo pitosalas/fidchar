@@ -47,7 +47,7 @@ class ReportTable:
 @dataclass
 class CardSection:
     """A section within a card - can be text, key-value pairs, list, table, etc."""
-    section_type: str  # "text", "key_value", "list", "progress_bar", "table"
+    section_type: str  # "text", "key_value", "list", "table"
     content: dict | list | str
     title: str | None = None
 

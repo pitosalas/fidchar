@@ -232,7 +232,7 @@ class BaseReportBuilder:
             profile_url = f'https://projects.propublica.org/nonprofits/organizations/{ein_no_dash}'
 
         # Wrap org name in link
-        org_name_html = f'<a href="{profile_url}" target="_blank" style="color: inherit; text-decoration: none;">{org_name}</a>'
+        org_name_html = f'<a href="{profile_url}" target="_blank" class="text-decoration-none text-reset">{org_name}</a>'
 
         # Build HTML badges with CSS classes
         badges_html = ""

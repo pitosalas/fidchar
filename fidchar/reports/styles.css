@@ -1,40 +1,73 @@
-.report-section .card {
-    width: 48%;
-    display: inline-block;
-    margin-right: 2%;
-    margin-bottom: 10px;
-    vertical-align: top;
-}
-
 /* Custom styles - only what Bootstrap doesn't provide */
 
-.detail-card {
-    border: 1px solid #000;
+/* Typography */
+h2 {
+    color: #4a4a4a;
 }
 
-.detail-card .row {
-    border-bottom: 1px solid #000;
+h3 {
+    color: #1a3a6b;
 }
 
-.detail-card .row:last-child {
-    border-bottom: none;
+/* Screen-only: Add vertical margins to container */
+@media screen {
+    .container {
+        margin-top: 3rem;
+        margin-bottom: 3rem;
+    }
 }
 
-.detail-card .col-md-7,
-.detail-card .col-md-5,
-.detail-card .col-md-6 {
-    border-right: 1px solid #000;
-}
-
-.detail-card .col-md-7:last-child,
-.detail-card .col-md-5:last-child,
-.detail-card .col-md-6:last-child {
-    border-right: none;
+.report-section .card {
+    width: 49%;
+    display: inline-block;
+    margin-right: 1%;
+    margin-bottom: 8px;
+    vertical-align: top;
+    box-sizing: border-box;
 }
 
 .charity-badge {
     font-size: 0.75rem;
     font-style: italic;
+}
+
+/* Compact tables */
+.table {
+    font-size: 0.875rem;
+}
+
+.table-sm {
+    font-size: 0.8rem;
+}
+
+/* Section-specific sizing */
+.section-detailed {
+    font-size: 90%;
+}
+
+/* Detail card internal styling */
+.card .border-bottom {
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+.card .border-end {
+    border-right: 1px solid #dee2e6 !important;
+}
+
+.card-body .row {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.detail-narrative {
+    margin-bottom: 0;
+}
+
+/* Truncate long charity names in card headers */
+.card-header h5 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media print {
@@ -43,8 +76,22 @@
         font-size: 70% !important;
     }
 
-    .card {
+    /* Card grid layout - 2x2 grid (4 cards per page) */
+    .report-section .card {
+        width: 48%;
+        float: left;
+        margin-right: 2%;
+        margin-bottom: 0.3cm;
         page-break-inside: avoid;
+        box-sizing: border-box;
+    }
+
+    /* 2x2 card grid: clear floats and page breaks */
+    .report-section .card:nth-of-type(2n) { margin-right: 0; }
+    .report-section .card:nth-of-type(2n+1) { clear: left; }
+    .report-section .card:nth-of-type(4n) {
+        page-break-after: always;
+        margin-bottom: 0;
     }
 
     h2, h3, .section-title {
