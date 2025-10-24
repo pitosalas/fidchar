@@ -214,17 +214,25 @@ class BaseReportBuilder:
         is_recurring = self.is_recurring_charity(ein)
         alignment_status = self.get_alignment_status(ein)
 
-        # Get Charity Navigator URL if available
-        cn_url = None
+        # Get Charity Navigator URL if available, fix URL format, or fallback to ProPublica
+        profile_url = None
         if ein in self.charity_evaluations:
             evaluation = self.charity_evaluations[ein]
             cn_url = evaluation.data_field_values.get('charity_navigator_url')
+            if cn_url:
+                # Fix Charity Navigator URL to include 'www' subdomain
+                if cn_url.startswith('https://charitynavigator.org/'):
+                    profile_url = cn_url.replace('https://charitynavigator.org/', 'https://www.charitynavigator.org/')
+                else:
+                    profile_url = cn_url
 
-        # Wrap org name in link if CN URL is available
-        if cn_url:
-            org_name_html = f'<a href="{cn_url}" target="_blank" style="color: inherit; text-decoration: none;">{org_name}</a>'
-        else:
-            org_name_html = org_name
+        # Fallback to ProPublica Nonprofit Explorer if no CN URL
+        if not profile_url:
+            ein_no_dash = ein.replace('-', '')
+            profile_url = f'https://projects.propublica.org/nonprofits/organizations/{ein_no_dash}'
+
+        # Wrap org name in link
+        org_name_html = f'<a href="{profile_url}" target="_blank" style="color: inherit; text-decoration: none;">{org_name}</a>'
 
         # Build HTML badges with CSS classes
         badges_html = ""
