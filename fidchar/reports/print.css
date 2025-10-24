@@ -1,5 +1,5 @@
 @media print {
-    body, p, li, td, th, div, span {
+    body, p, li, td, th, span {
         color: black !important;
         font-size: 70% !important;
     }
