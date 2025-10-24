@@ -10,6 +10,7 @@ input_file: "../data.csv"
 # - yearly: Yearly Donation Analysis
 # - top_charities: Top N Charities by Total Donations
 # - recurring_summary: Recurring Charities Summary (EIN, name, total donated, last donation date)
+# - remaining: Remaining Charities (multi-year, multi-donation but not recurring)
 # - patterns: One-Time vs Recurring Donation Patterns
 # - detailed: Detailed Analysis of Top N Charities
 # - definitions: Definitions of terms used in the report
@@ -37,6 +38,11 @@ sections:
     # Recurring Charities Summary - simple list with last donation and total
     options:
       max_recurring_shown: 100
+
+  - name: remaining
+    # Remaining Charities - multi-year, multi-donation but not recurring
+    options:
+      max_remaining_shown: 100
 
   - name: patterns
     # One-Time vs Recurring Donation Patterns

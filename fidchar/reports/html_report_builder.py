@@ -234,11 +234,49 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         return f"""
     <div class="report-section">
-        <h2 class="section-title">Recurring Charities Summary</h2>
-        <p>{data['count']} charities identified as recurring based on your donation patterns:</p>
+        <h2 class="section-title">Recurring Charities (≥5 years, ≥$1,000/year)</h2>
+        <p>{data['count']} charities meeting recurring threshold - at least 5 years with $1,000+ donations:</p>
         {table_html}
         <p style="font-weight: bold; margin-top: 20px;">
             Total donated to recurring charities: ${data['total']:,.2f}
+        </p>
+    </div>"""
+
+    def generate_remaining_charities_section_html(self, data):
+        """Generate remaining charities section as HTML"""
+        if data is None or data['count'] == 0:
+            return ""
+
+        # Build DataFrame from rows
+        df_data = []
+        for row in data['rows']:
+            last_date_str = row['last_date'].strftime('%Y-%m-%d') if row['last_date'] else 'N/A'
+
+            # Get formatted org name with badges
+            charity_info = self.format_charity_info(row['ein'], row['organization'], row['total_donated'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total Donated': f"${row['total_donated']:,.2f}",
+                'Donations': row['donation_count'],
+                'Years': row['unique_years']
+            })
+
+        df = pd.DataFrame(df_data)
+
+        table = ReportTable.from_dataframe(
+            df,
+            title=None  # Title will be in section header
+        )
+        table_html = self.table_renderer.render(table)
+
+        return f"""
+    <div class="report-section">
+        <h2 class="section-title">Remaining Charities ({data['count']} organizations)</h2>
+        <p>Multi-year, multi-donation charities that don't meet the recurring threshold (5 years with $1,000+ each year). These represent sustained giving relationships at lower amounts or fewer qualifying years.</p>
+        {table_html}
+        <p style="font-weight: bold; margin-top: 20px;">
+            Total donated to remaining charities: ${data['total']:,.2f}
         </p>
     </div>"""
 
@@ -352,7 +390,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             self.charity_evaluations,
             self,
             top_charities_count,
-            exclude_definitions=True  # We'll add this manually at the end
+            exclude_definitions=True,  # We'll add this manually at the end
+            top_charities=top_charities
         )
 
         # Generate charity cards section
@@ -641,7 +680,7 @@ if False:
 def generate_table_sections(categories_html, yearly_html, top_charities_html,
                            one_time, stopped_recurring, config: dict,
                            charity_evaluations=None, builder=None, top_charities_count=10,
-                           exclude_definitions=False):
+                           exclude_definitions=False, top_charities=None):
     sections = config.get("sections", {})
     html_content = ""
 
@@ -707,6 +746,12 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
                 max_recurring = section_options.get("max_recurring_shown", 20)
                 data = builder.prepare_recurring_summary_data(max_shown=max_recurring)
                 html_content += builder.generate_recurring_summary_section_html(data)
+        elif section_id == "remaining":
+            if builder:
+                # Get configurable limit from section options
+                max_remaining = section_options.get("max_remaining_shown", 100)
+                data = builder.prepare_remaining_charities_data(one_time, top_charities, max_shown=max_remaining)
+                html_content += builder.generate_remaining_charities_section_html(data)
 
     return html_content
 

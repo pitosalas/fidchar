@@ -114,7 +114,7 @@ class BaseReportBuilder:
             'graph_filename': graph_filename,
             'has_graph': has_graph,
             'evaluation': evaluation,
-            'recurring_charity': ein in self.recurring_ein_set
+            'recurring_charity': tax_id in self.recurring_ein_set
         }
 
     def prepare_top_charities_data(self, top_charities):
@@ -214,6 +214,18 @@ class BaseReportBuilder:
         is_recurring = self.is_recurring_charity(ein)
         alignment_status = self.get_alignment_status(ein)
 
+        # Get Charity Navigator URL if available
+        cn_url = None
+        if ein in self.charity_evaluations:
+            evaluation = self.charity_evaluations[ein]
+            cn_url = evaluation.data_field_values.get('charity_navigator_url')
+
+        # Wrap org name in link if CN URL is available
+        if cn_url:
+            org_name_html = f'<a href="{cn_url}" target="_blank" style="color: inherit; text-decoration: none;">{org_name}</a>'
+        else:
+            org_name_html = org_name
+
         # Build HTML badges with CSS classes
         badges_html = ""
 
@@ -233,7 +245,7 @@ class BaseReportBuilder:
             if alignment_score is not None and alignment_score > 0:
                 badges_html += f" <span class=\"charity-badge\">ALIGN: {alignment_score}%</span>"
 
-        html_org = org_name + badges_html
+        html_org = org_name_html + badges_html
 
         result = {
             'ein': ein,
@@ -336,4 +348,67 @@ class BaseReportBuilder:
             'rows': rows,
             'count': total_count,  # Total count (before limiting)
             'total': total_focus_donated
+        }
+
+    def prepare_remaining_charities_data(self, one_time, top_charities, max_shown=100):
+        """Prepare remaining charities: multi-year/multi-donation but not recurring
+
+        These are charities with multiple donations across multiple years that don't
+        meet the recurring threshold (5 years with ≥$1000 each).
+
+        Args:
+            one_time: DataFrame of one-time donations
+            top_charities: DataFrame of top charities (to exclude)
+            max_shown: Maximum number to show (default: 100)
+        """
+        # Get all charities grouped
+        all_charities = self.df.groupby('Tax ID').agg({
+            'Amount_Numeric': 'sum',
+            'Organization': 'first',
+            'Submit Date': 'max'
+        }).reset_index()
+
+        # Count donations and unique years for each
+        donation_counts = self.df.groupby('Tax ID').size()
+        unique_years = self.df.groupby('Tax ID')['Year'].nunique()
+
+        all_charities['donation_count'] = all_charities['Tax ID'].map(donation_counts)
+        all_charities['unique_years'] = all_charities['Tax ID'].map(unique_years)
+
+        # Filter for gap charities
+        one_time_eins = set(one_time.index) if one_time is not None and hasattr(one_time, 'index') else set()
+        top_eins = set(top_charities.index) if top_charities is not None and hasattr(top_charities, 'index') else set()
+
+        remaining = all_charities[
+            (all_charities['donation_count'] > 1) &  # Not one-time
+            (all_charities['unique_years'] > 1) &     # Multiple years
+            (~all_charities['Tax ID'].isin(self.recurring_ein_set)) &  # Not recurring
+            (~all_charities['Tax ID'].isin(top_eins)) &  # Not in top charities
+            (~all_charities['Tax ID'].isin(one_time_eins))  # Not one-time
+        ].copy()
+
+        # Sort by total amount
+        remaining = remaining.sort_values('Amount_Numeric', ascending=False)
+
+        total_count = len(remaining)
+        total_amount = remaining['Amount_Numeric'].sum()
+
+        # Limit to max_shown
+        remaining = remaining.head(max_shown)
+
+        rows = []
+        for _, row in remaining.iterrows():
+            rows.append({
+                'ein': row['Tax ID'],
+                'organization': row['Organization'],
+                'total_donated': row['Amount_Numeric'],
+                'last_date': row['Submit Date'],
+                'donation_count': row['donation_count'],
+                'unique_years': row['unique_years']
+            })
+
+        return {
+            'rows': rows,
+            'count': total_count,
+            'total': total_amount
         }
