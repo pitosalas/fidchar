@@ -6,6 +6,8 @@
     vertical-align: top;
 }
 
+/* Custom styles - only what Bootstrap doesn't provide */
+
 .detail-card {
     border: 1px solid #000;
 }
@@ -30,58 +32,34 @@
     border-right: none;
 }
 
-.detail-card li {
-    font-size: 0.95rem;
-}
-
-.card-header h4 {
-    font-size: 1.15rem;
-}
-
 .charity-badge {
     font-size: 0.75rem;
     font-style: italic;
 }
 
-.detail-subtitle {
-    display: block;
-    margin-top: 0.5em;
-    margin-bottom: 0.25em;
-    font-size: 0.95rem;
-}
+@media print {
+    body, p, li, td, th, span {
+        color: black !important;
+        font-size: 70% !important;
+    }
 
-.detail-narrative {
-    /* line-height: 1.; */
-    margin-top: 0.5em;
-    font-size: 0.95rem;
-}
+    .card {
+        page-break-inside: avoid;
+    }
 
-.definitions-content {
-    font-size: 0.85rem;
-    line-height: 1.3;
-    column-count: 2;
-    column-gap: 2rem;
-    column-rule: 1px solid #000;
-}
+    h2, h3, .section-title {
+        page-break-after: avoid;
+    }
 
-.definitions-content h1 {
-    font-size: 1.3rem;
-    margin-top: 0.5em;
-    margin-bottom: 0.3em;
-}
+    .section-definitions .row {
+        page-break-before: always;
+    }
 
-.definitions-content h2 {
-    font-size: 1.1rem;
-    margin-top: 0.4em;
-    margin-bottom: 0.2em;
-}
+    .section-definitions .row:first-child {
+        page-break-before: auto;
+    }
 
-.definitions-content h3 {
-    font-size: 1rem;
-    margin-top: 0.3em;
-    margin-bottom: 0.15em;
-}
-
-.definitions-content p {
-    margin-bottom: 0.3em;
+    .section-definitions {
+        font-size: 80% !important;
+    }
 }

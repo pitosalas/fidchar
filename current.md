@@ -38,20 +38,25 @@ fidchar/
 │   │   ├── analysis.py        # Data analysis functions
 │   │   └── visualization.py   # Chart generation (Tufte-style)
 │   ├── reports/               # Report generation
-│   │   ├── base_report_builder.py    # Base class with shared logic
-│   │   ├── html_report_builder.py    # HTML reports (Bootstrap)
-│   │   └── charity_evaluator.py      # Charapi integration
-│   ├── report_generator/      # Reusable report rendering library
-│   │   ├── __init__.py        # Package exports
-│   │   ├── models.py          # ReportTable, ReportCard data models
-│   │   ├── renderers.py       # HTML renderers (Text/Markdown kept for library reuse)
-│   │   ├── utils.py           # Document-level helpers (demo)
-│   │   ├── profiles.py        # Example charity profiles
-│   │   └── main.py            # Standalone demo script
-│   ├── config.yaml            # YAML configuration file
-│   └── main.py                # Main orchestration script
+│   │   ├── base_report_builder.py    # Base class for reports
+│   │   ├── formatters.py             # Format-specific formatters
+│   │   ├── markdown_report_builder.py # Markdown reports
+│   │   ├── text_report_builder.py    # Text reports
+│   │   ├── html_report_builder.py    # HTML report sections
+│   │   ├── comprehensive_report.py   # HTML report composition
+│   │   ├── reporting.py              # Console output
+│   │   ├── charity_evaluator.py      # Charapi integration
+│   │   ├── styles.css                # All CSS (screen + print consolidated)
+│   │   └── colors.css                # Color definitions
+│   ├── tables/                # Table generation
+│   │   └── great_tables_builder.py   # Great Tables HTML generation
+│   ├── main.py                # Orchestration
+│   ├── config.yaml            # Configuration file
+│   └── definitions.md         # Definitions section (Bootstrap grid HTML)
 ├── tests/                     # Unit tests
-│   └── test_data_processing.py
+│   ├── test_data_processing.py
+│   ├── test_analysis.py
+│   └── test_report_generation.py
 ├── archive/                   # Archived old files
 ├── data.csv                   # Input donation data
 └── output/                    # Generated reports and charts
@@ -156,72 +161,24 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 ## Current Status
 
 ### ✅ Recently Completed Features
-- **Major UI/CSS Overhaul** (Oct 23, 2025)
-  - Separated CSS into three files: colors.css, styles.css, print.css
-  - Removed all inline styles from Python code - all styling now in CSS
-  - Changed alignment badges from stars to percentages (ALIGN: 60%)
-  - Made badges italic and smaller font (0.75rem)
-  - Restructured detail card layout to three-row Bootstrap grid:
-    - Row 1: Basic info table (7 cols) + graph (5 cols)
-    - Row 2: Charity Evaluation (6 cols) + Alignment (6 cols) side-by-side
-    - Row 3: Narrative summary (full width)
-  - Card header now uses col-9/col-3 split (charity name / badges)
-  - Removed card numbering from detail cards
-  - Made definitions section two-column layout
-  - Compacted definitions styling (smaller fonts, tighter spacing)
-  - Simplified print.css to essential rules only
-  - Changed definition list columns from col-sm-4/col-sm-8 to col-sm-5/col-sm-7
-  - Added CSS classes: detail-card, detail-subtitle, detail-narrative
-  - Removed text-muted class from narrative paragraphs
-  - All CSS files now synced between templates and output
-
-- **Removed Hydra Dependency** (Oct 21, 2025 - Evening)
-  - Replaced Hydra configuration management with simple YAML loading
-  - Removed hydra-core, omegaconf, and antlr4-python3-runtime dependencies
-  - Simplified main.py by removing decorators and path workarounds
-  - Moved config.yaml from conf/ directory to fidchar/ root
-  - Eliminated working directory changes and OmegaConf conversions
-  - System now uses standard Python yaml.safe_load()
-  - Lost CLI override features but gained simpler, more maintainable code
-
-- **Simplified to HTML-Only Output** (Oct 21, 2025 - Afternoon)
-  - Removed markdown and text report builders
-  - Removed `generate_markdown` and `generate_textfile` config flags
-  - Simplified main.py to generate only HTML reports
-  - Archived obsolete test files (test_analysis.py, test_analyze_recurring_basic.py, test_report_generation.py)
-  - Kept report_generator Text/Markdown renderers for library reusability
-  - System now focuses exclusively on professional HTML reports with Bootstrap styling
-
-- **Report Generator Migration & API Consolidation** (Oct 10, 2025)
-  - Migrated all report builders to use `report_generator` module for table/card rendering
-  - Made `report_generator/` a proper Python package with `__init__.py`
-  - Eliminated duplicate Charity Navigator API calls
-  - Removed `core/charity_api.py` - charapi is now the single source for charity data
-  - All charity descriptions now come from `charapi.evaluation.summary`
-  - Removed `charity_descriptions` parameter throughout codebase
-  - Cleaner architecture: charapi handles all external API integration
-  - Removed obsolete `reports/reporting.py` (misplaced API client)
-  - HTML document generation consolidated into `html_report_builder.py`
-
-- **Hydra Configuration Management** (Oct 9, 2025)
-  - CLI overrides for any config value
-  - Multi-run capability for parameter sweeps
-  - Config visibility (prints resolved config after each run)
-  - Cleaner config access with dot notation
-  - Original files archived for easy revert
-
-- **Previous Features**
-  - Matplotlib Agg backend (prevents macOS Dock icon appearance)
-  - Shortened identifiers to ~15 characters (coding standards)
-  - Fixed charapi absolute imports
-  - Inheritance-based report builder architecture (BaseReportBuilder)
-  - Configurable consistent donations (min_years, min_amount parameters)
-  - Efficiency Frontier visualization with configurable scoring
-  - Updated scoring formula: Outstanding×2 + Acceptable - Unacceptable
-  - Single-color bubble chart (removed color coding)
-  - All charities labeled on efficiency frontier
-  - Updated HTML report to include analysis section
-  - Moved obsolete files to archive/
+- Inheritance-based report builder architecture (BaseReportBuilder)
+- Configurable consistent donations (min_years, min_amount parameters)
+- Redefined recurring donations based on years supported (not CSV field)
+- Added First Year and Years Supported columns to recurring donations table
+- Removed Period/Recurring field dependency
+- Efficiency Frontier visualization with configurable scoring
+- Updated scoring formula: Outstanding×2 + Acceptable - Unacceptable
+- Single-color bubble chart (removed color coding)
+- All charities labeled on efficiency frontier
+- Updated HTML report to include analysis section
+- Comprehensive unit test suite
+- Moved obsolete files to archive/
+- **CSS Consolidation**: Merged print.css into styles.css (single CSS file for all styling)
+- **Definitions Section**: Uses Bootstrap grid (`.row`/`.col-md-6`) with HTML embedded in markdown
+- **Section Classes**: Added section-specific CSS classes (`.section-definitions`, `.section-detailed`, etc.)
+- **Simplified Print**: 80% font scaling for definitions section, page breaks between rows
+- **Typography**: h1 dark grey (#4a4a4a), h2 dark blue (#1a3a6b)
+- **Bootstrap-First**: Minimal custom CSS, Bootstrap handles most layout and styling
 
 ### 📋 Active Configuration Options
 1. ✅ `recurring.max_shown` - Maximum rows in recurring donations table

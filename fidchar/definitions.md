@@ -1,5 +1,8 @@
 # Definitions
 
+<div class="row">
+<div class="col-md-6 border-end">
+
 ## Recurring Charity
 A charity that meets specific criteria based on your giving history:
 - You donated to them in the previous calendar year
@@ -29,6 +32,7 @@ A score (0-100) that measures how well a charity aligns with your personal givin
 
 The report uses compact, italic badges to highlight important charity attributes displayed in the header of each detail card.
 
+
 **Status Badges:**
 - **RECUR**: Charity receives regular donations from you based on historical pattern
 - **CONSDR**: High-quality charity meeting alignment and evaluation thresholds (not shown for recurring charities)
@@ -41,6 +45,9 @@ Shows the alignment score as a percentage:
   - 50-69: Moderate alignment
   - 30-49: Limited alignment
   - 0-29: Poor alignment
+
+</div>
+<div class="col-md-6">
 
 ## Metric Status
 
@@ -69,6 +76,11 @@ Percentage of total expenses spent on management and general administration. Low
 Percentage of total expenses spent on fundraising activities. Lower is generally better.
 - Outstanding: ≤ 10%
 - Acceptable: ≤ 20%
+
+</div>
+<div class="row">
+<div class="col-md-6 border-end">
+
 
 ## Organization Types
 
@@ -130,6 +142,8 @@ Provides ratings, mission statements, and additional evaluation data for rated o
 - ENCOMPASS scores and star ratings
 - Beacon metrics (Financial Health, Accountability & Transparency)
 - Advisory alerts (when applicable)
+</div>
+<div class="col-md-6">
 
 ## For Consideration (CONSDR Badge)
 
@@ -172,3 +186,6 @@ The report can be customized via `config.yaml`:
 - `enabled`: Enable/disable for consideration feature (default: true)
 - `min_alignment_score`: Minimum alignment score 0-100 (default: 70)
 - `min_evaluation_score`: Minimum evaluation score percentage (default: 70)
+
+</div>
+</div>

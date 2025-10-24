@@ -396,7 +396,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         # Generate charity cards section
         charity_cards_html = f"""
-    <div class="report-section">
+    <div class="report-section section-detailed">
         <h2 class="section-title">Detailed Analysis of Top {top_charities_count} Charities</h2>
         <p>Complete donation history and trend analysis for each of the top {top_charities_count} charities:</p>
 """
@@ -422,17 +422,17 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         # Build complete HTML document
         html_content = _build_html_document(
-            [],  # Empty tables list - we're using custom_header/footer for all content
+            [],
             doc_title="Charitable Donation Analysis Report",
             custom_header=custom_header + body_content,
             custom_footer=custom_footer,
-            custom_styles=None,  # No embedded styles - using external CSS files
+            custom_styles=None,
             container_class="container my-5",
-            css_files=["colors.css", "styles.css", "print.css"]  # Reference external CSS files
+            css_files=["colors.css", "styles.css"]
         )
 
         # Copy CSS files to output directory
-        for css_file in ["colors.css", "styles.css", "print.css"]:
+        for css_file in ["colors.css", "styles.css"]:
             css_source = os.path.join(os.path.dirname(__file__), css_file)
             css_dest = f"../output/{css_file}"
             shutil.copy(css_source, css_dest)
@@ -691,14 +691,15 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         if exclude_definitions and section_id == "definitions":
             continue
         section_options = section.get("options", {}) if isinstance(section, dict) else {}
+        
         if section_id == "sectors":
             html_content += f"""
-    <div class="report-section">
+    <div class="report-section section-sectors">
         {categories_html}
     </div>"""
         elif section_id == "yearly":
             html_content += f"""
-    <div class="report-section">
+    <div class="report-section section-yearly">
         <h2 class="section-title">Yearly Analysis</h2>
         <div style="text-align: center; margin: 20px 0;">
             <img src="images/yearly_amounts.png" alt="Yearly Donation Amounts" style="max-width: 100%; height: auto; margin: 10px;">
@@ -708,7 +709,7 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
     </div>"""
         elif section_id == "top_charities":
             html_content += f"""
-    <div class="report-section">
+    <div class="report-section section-top-charities">
         {top_charities_html}
     </div>"""
         elif section_id == "patterns":
@@ -727,31 +728,36 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
                 stopped_count = len(stopped_recurring)
                 overflow_stopped = max(0, stopped_count - max_stopped)
 
-                html_content += f"{one_time_table}"
+                html_content += f"""
+    <div class="report-section section-patterns">
+        {one_time_table}"""
                 if overflow_one_time > 0:
                     html_content += f"""
         <p><em>... and {overflow_one_time} more organizations</em></p>"""
                 html_content += f"""
         <p style="margin-top: 15px;"><strong>One-time donations total:</strong> ${one_time_total:,.2f}</p>
 
-    {stopped_table}"""
+        {stopped_table}"""
                 if overflow_stopped > 0:
                     html_content += f"""
         <p><em>... and {overflow_stopped} more organizations</em></p>"""
                 html_content += f"""
-        <p style="margin-top: 15px;"><strong>Stopped recurring donations total:</strong> ${stopped_total:,.2f}</p>"""
+        <p style="margin-top: 15px;"><strong>Stopped recurring donations total:</strong> ${stopped_total:,.2f}</p>
+    </div>"""
         elif section_id == "recurring_summary":
             if builder:
                 # Get configurable limit from section options
                 max_recurring = section_options.get("max_recurring_shown", 20)
                 data = builder.prepare_recurring_summary_data(max_shown=max_recurring)
-                html_content += builder.generate_recurring_summary_section_html(data)
+                summary_html = builder.generate_recurring_summary_section_html(data)
+                html_content += summary_html.replace('class="report-section"', 'class="report-section section-recurring-summary"', 1)
         elif section_id == "remaining":
             if builder:
                 # Get configurable limit from section options
                 max_remaining = section_options.get("max_remaining_shown", 100)
                 data = builder.prepare_remaining_charities_data(one_time, top_charities, max_shown=max_remaining)
-                html_content += builder.generate_remaining_charities_section_html(data)
+                remaining_html = builder.generate_remaining_charities_section_html(data)
+                html_content += remaining_html.replace('class="report-section"', 'class="report-section section-remaining"', 1)
 
     return html_content
 
@@ -767,17 +773,17 @@ def generate_definitions_section():
     try:
         with open(definitions_path, "r") as f:
             markdown_content = f.read()
-            html_definitions = md.render(markdown_content)
-
+        
+        html_definitions = md.render(markdown_content)
+        
         return f"""
-    <div class="report-section">
-        <div class="definitions-content">
-            {html_definitions}
-        </div>
+    <div class="report-section section-definitions">
+        {html_definitions}
     </div>"""
+            
     except FileNotFoundError:
         return """
-    <div class="report-section">
+    <div class="report-section section-definitions">
         <h2 class="section-title">Definitions</h2>
         <p><em>Definitions file not found.</em></p>
     </div>"""
