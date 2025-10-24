@@ -47,16 +47,21 @@ h3 {
 
 /* Detail card internal styling */
 .card .border-bottom {
-    border-bottom: 1px solid #dee2e6 !important;
+    border-bottom: 1px solid #000 !important;
 }
 
 .card .border-end {
-    border-right: 1px solid #dee2e6 !important;
+    border-right: 1px solid #000 !important;
 }
 
 .card-body .row {
     margin-left: 0;
     margin-right: 0;
+    padding: 0;
+}
+
+div.card-body {
+    padding: 0;
 }
 
 .detail-narrative {
