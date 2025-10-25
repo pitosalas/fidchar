@@ -91,11 +91,11 @@ class HTMLCardRenderer:
         # Second row: charity evaluation and alignment (side by side)
         if list_sections:
             html.append("<div class='row border-bottom'>")
-            html.append("<div class='col-md-6 border-end'>")
+            html.append("<div class='col-md-5 border-end'>")
             html.append(self._render_section(list_sections[0]))
             html.append("</div>")
             if len(list_sections) > 1:
-                html.append("<div class='col-md-6'>")
+                html.append("<div class='col-md-7'>")
                 html.append(self._render_section(list_sections[1]))
                 html.append("</div>")
             html.append("</div>")

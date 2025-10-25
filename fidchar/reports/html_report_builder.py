@@ -57,7 +57,8 @@ def _build_html_document(tables: List[ReportTable], doc_title, custom_header, cu
 def generate_html_header_section(total_donations, total_amount, years_covered,
                                 one_time_total, stopped_total, top_charities_count):
     """Generate the custom header and executive summary sections for fidchar report"""
-    return f"""        <header class="text-center mb-5 pb-3 border-bottom">
+    return f"""    <div class="report-section section-header">
+        <header class="text-center mb-5 pb-3 border-bottom">
             <h1 class="display-4">Charitable Donation Analysis Report</h1>
             <p class="text-muted">Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
             <div class="alert alert-light border">
@@ -68,34 +69,35 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
         </header>
 
         <div class="row mb-5">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card border-start border-4 border-primary">
                     <div class="card-body">
-                        <h5 class="card-title">One-Time Donations</h5>
+                        <h6 class="card-title">One-Time Donations</h6>
                         <p class="card-text"><strong>78 organizations</strong></p>
                         <p class="card-text">Total: ${one_time_total:,.2f}</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card border-start border-4 border-warning">
                     <div class="card-body">
-                        <h5 class="card-title">Stopped Recurring</h5>
+                        <h6 class="card-title">Stopped Recurring</h6>
                         <p class="card-text"><strong>5 organizations</strong></p>
                         <p class="card-text">Total: ${stopped_total:,.2f}</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card border-start border-4 border-success">
                     <div class="card-body">
-                        <h5 class="card-title">Top {top_charities_count} Charities</h5>
+                        <h6 class="card-title">Top {top_charities_count} Charities</h6>
                         <p class="card-text"><strong>Major recipients</strong></p>
                         <p class="card-text">Detailed analysis below</p>
                     </div>
                 </div>
             </div>
-        </div>"""
+        </div>
+    </div>"""
 
 
 class HTMLReportBuilder(brb.BaseReportBuilder):
@@ -107,7 +109,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         self.card_renderer = HTMLCardRenderer()
 
     def generate_top_charities_bootstrap(self, top_charities):
-        """Generate top charities table using Bootstrap renderer"""
+        """Generate top charities table using Bootstrap renderer - two columns for print"""
         # Build DataFrame with formatted org names that include badges
         df_data = []
         for ein, row in top_charities.iterrows():
@@ -119,19 +121,34 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Total Amount': f"${row['Amount_Numeric']:,.0f}"
             })
 
-        df_for_table = pd.DataFrame(df_data)
+        # Split data into two columns for print layout
+        mid_point = (len(df_data) + 1) // 2
+        df_left = pd.DataFrame(df_data[:mid_point])
+        df_right = pd.DataFrame(df_data[mid_point:])
 
-        table = ReportTable.from_dataframe(
-            df_for_table,
-            title=f"Top {len(top_charities)} Charities by Total Donations"
-        )
-        return self.table_renderer.render(table)
+        table_left = ReportTable.from_dataframe(df_left, title=None)
+        table_right = ReportTable.from_dataframe(df_right, title=None)
 
-    def generate_category_table_bootstrap(self, category_totals, total_amount):
+        left_html = self.table_renderer.render(table_left)
+        right_html = self.table_renderer.render(table_right)
+
+        # Wrap in two-column layout with title
+        return f"""
+        <h2 class="mb-3">Top {len(top_charities)} Charities by Total Donations</h2>
+        <div class="row">
+            <div class="col-md-6">{left_html}</div>
+            <div class="col-md-6">{right_html}</div>
+        </div>
+        """
+
+    def generate_category_table_bootstrap(self, category_totals, total_amount, show_percentages=False):
         """Generate category totals table using Bootstrap renderer"""
         df = category_totals.reset_index()
         df.columns = ['Charitable Sector', 'Total Amount']
-        df['Percentage'] = (df['Total Amount'] / total_amount * 100).apply(lambda x: f"{x:.1f}%")
+
+        if show_percentages:
+            df['Percentage'] = (df['Total Amount'] / total_amount * 100).apply(lambda x: f"{x:.1f}%")
+
         df['Total Amount'] = df['Total Amount'].apply(lambda x: f"${x:,.0f}")
 
         table = ReportTable.from_dataframe(
@@ -155,7 +172,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         return self.table_renderer.render(table)
 
     def generate_one_time_table_bootstrap(self, one_time, max_shown=20):
-        """Generate one-time donations table using Bootstrap renderer"""
+        """Generate one-time donations table using Bootstrap renderer - two columns for print"""
         # Build DataFrame with formatted org names that include badges
         df_data = []
         for ein, row in one_time.head(max_shown).iterrows():
@@ -168,13 +185,25 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Date': row['First_Date'].strftime("%m/%d/%Y")
             })
 
-        df = pd.DataFrame(df_data)
+        # Split data into two columns for print layout
+        mid_point = (len(df_data) + 1) // 2
+        df_left = pd.DataFrame(df_data[:mid_point])
+        df_right = pd.DataFrame(df_data[mid_point:])
 
-        table = ReportTable.from_dataframe(
-            df,
-            title=f"One-Time Donations ({len(one_time)} organizations)"
-        )
-        return self.table_renderer.render(table)
+        table_left = ReportTable.from_dataframe(df_left, title=None)
+        table_right = ReportTable.from_dataframe(df_right, title=None)
+
+        left_html = self.table_renderer.render(table_left)
+        right_html = self.table_renderer.render(table_right)
+
+        # Wrap in two-column layout with title
+        return f"""
+        <h2 class="mb-3">One-Time Donations ({len(one_time)} organizations)</h2>
+        <div class="row">
+            <div class="col-md-6">{left_html}</div>
+            <div class="col-md-6">{right_html}</div>
+        </div>
+        """
 
     def generate_stopped_table_bootstrap(self, stopped_recurring, max_shown=15):
         """Generate stopped recurring table using Bootstrap renderer"""
@@ -201,7 +230,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         return self.table_renderer.render(table)
 
     def generate_recurring_summary_section_html(self, data):
-        """Generate recurring charities summary as HTML using HTMLSectionRenderer"""
+        """Generate recurring charities summary as HTML - two columns for print"""
         if data is None:
             return """
     <div class="report-section">
@@ -224,26 +253,32 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Last Donation': last_date_str
             })
 
-        df = pd.DataFrame(df_data)
+        # Split data into two columns for print layout
+        mid_point = (len(df_data) + 1) // 2
+        df_left = pd.DataFrame(df_data[:mid_point])
+        df_right = pd.DataFrame(df_data[mid_point:])
 
-        table = ReportTable.from_dataframe(
-            df,
-            title=None  # Title will be in section header
-        )
-        table_html = self.table_renderer.render(table)
+        table_left = ReportTable.from_dataframe(df_left, title=None)
+        table_right = ReportTable.from_dataframe(df_right, title=None)
+
+        left_html = self.table_renderer.render(table_left)
+        right_html = self.table_renderer.render(table_right)
 
         return f"""
     <div class="report-section">
         <h2 class="section-title">Recurring Charities (≥5 years, ≥$1,000/year)</h2>
         <p>{data['count']} charities meeting recurring threshold - at least 5 years with $1,000+ donations:</p>
-        {table_html}
+        <div class="row">
+            <div class="col-md-6">{left_html}</div>
+            <div class="col-md-6">{right_html}</div>
+        </div>
         <p class="fw-bold mt-4">
             Total donated to recurring charities: ${data['total']:,.2f}
         </p>
     </div>"""
 
     def generate_remaining_charities_section_html(self, data):
-        """Generate remaining charities section as HTML"""
+        """Generate remaining charities section as HTML - two columns for print"""
         if data is None or data['count'] == 0:
             return ""
 
@@ -262,19 +297,25 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Years': row['unique_years']
             })
 
-        df = pd.DataFrame(df_data)
+        # Split data into two columns for print layout
+        mid_point = (len(df_data) + 1) // 2
+        df_left = pd.DataFrame(df_data[:mid_point])
+        df_right = pd.DataFrame(df_data[mid_point:])
 
-        table = ReportTable.from_dataframe(
-            df,
-            title=None  # Title will be in section header
-        )
-        table_html = self.table_renderer.render(table)
+        table_left = ReportTable.from_dataframe(df_left, title=None)
+        table_right = ReportTable.from_dataframe(df_right, title=None)
+
+        left_html = self.table_renderer.render(table_left)
+        right_html = self.table_renderer.render(table_right)
 
         return f"""
     <div class="report-section">
         <h2 class="section-title">Remaining Charities ({data['count']} organizations)</h2>
         <p>Multi-year, multi-donation charities that don't meet the recurring threshold (5 years with $1,000+ each year). These represent sustained giving relationships at lower amounts or fewer qualifying years.</p>
-        {table_html}
+        <div class="row">
+            <div class="col-md-6">{left_html}</div>
+            <div class="col-md-6">{right_html}</div>
+        </div>
         <p class="fw-bold mt-4">
             Total donated to remaining charities: ${data['total']:,.2f}
         </p>
@@ -375,8 +416,16 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             one_time_total, stopped_total, top_charities_count
         )
 
+        # Get sector options from config
+        sectors_options = {}
+        for section in self.config.get("sections", []):
+            if isinstance(section, dict) and section.get("name") == "sectors":
+                sectors_options = section.get("options", {})
+                break
+
         # Generate HTML tables using Bootstrap renderers
-        categories_html = self.generate_category_table_bootstrap(category_totals, total_amount)
+        show_percentages = sectors_options.get("show_percentages", False)
+        categories_html = self.generate_category_table_bootstrap(category_totals, total_amount, show_percentages)
         yearly_html = self.generate_yearly_table_bootstrap(yearly_amounts, yearly_counts)
         top_charities_html = self.generate_top_charities_bootstrap(top_charities)
 
@@ -692,20 +741,30 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         if exclude_definitions and section_id == "definitions":
             continue
         section_options = section.get("options", {}) if isinstance(section, dict) else {}
+
+        # Skip section if include is explicitly set to false
+        if section_options.get("include") == False:
+            continue
         
         if section_id == "sectors":
             html_content += f"""
     <div class="report-section section-sectors">
-        {categories_html}
+        <div class="row">
+            <div class="col-md-5">
+                {categories_html}
+            </div>
+            <div class="col-md-7">
+                <h2 class="section-title">Yearly Analysis</h2>
+                <div class="text-center">
+                    <img src="images/yearly_amounts.png" alt="Yearly Donation Amounts" class="img-fluid mb-2" style="max-width: 100%;">
+                    <img src="images/yearly_counts.png" alt="Yearly Donation Counts" class="img-fluid" style="max-width: 100%;">
+                </div>
+            </div>
+        </div>
     </div>"""
         elif section_id == "yearly":
             html_content += f"""
     <div class="report-section section-yearly">
-        <h2 class="section-title">Yearly Analysis</h2>
-        <div class="text-center my-4">
-            <img src="images/yearly_amounts.png" alt="Yearly Donation Amounts" class="img-fluid m-2">
-            <img src="images/yearly_counts.png" alt="Yearly Donation Counts" class="img-fluid m-2">
-        </div>
         {yearly_html}
     </div>"""
         elif section_id == "top_charities":
@@ -774,7 +833,16 @@ def generate_definitions_section():
     try:
         with open(definitions_path, "r") as f:
             markdown_content = f.read()
-        
+
+        # Process magic strings for column layout
+        markdown_content = markdown_content.replace(
+            ':begin-left',
+            '<div class="row border-bottom">\n<div class="col-md-6 border-end border-dark">'
+        )
+        markdown_content = markdown_content.replace(':end-left', '</div>')
+        markdown_content = markdown_content.replace(':begin-right', '<div class="col-md-6">')
+        markdown_content = markdown_content.replace(':end-right', '</div>\n</div>')
+
         html_definitions = md.render(markdown_content)
         
         return f"""

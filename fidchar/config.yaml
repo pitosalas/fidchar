@@ -21,13 +21,14 @@ sections:
 
   - name: sectors
     # Donation Analysis by Charitable Sector
-    # options:
-    #   show_percentages: true
+    options:
+      show_percentages: true
 
   - name: yearly
     # Yearly Donation Analysis
-    # options:
+    options:
     #   include_charts: true
+      include: false
 
   - name: top_charities
     # Top 10 Charities by Total Donations
