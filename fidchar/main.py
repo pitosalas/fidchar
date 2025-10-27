@@ -6,12 +6,12 @@ Coordinates data processing, analysis, visualization, and reporting.
 import os
 import shutil
 import yaml
-import core.data_processing as dp
-import core.analysis as an
-import core.visualization as vis
-import reports.charity_evaluator as ev
-import reports.html_report_builder as hrb
-import reports.base_report_builder as brb
+from fidchar.core import data_processing as dp
+from fidchar.core import analysis as an
+from fidchar.core import visualization as vis
+from fidchar.reports import charity_evaluator as ev
+from fidchar.reports import html_report_builder as hrb
+from fidchar.reports import base_report_builder as brb
 
 
 def load_config():
@@ -34,8 +34,16 @@ def main():
     """Main entry point for donation analysis."""
     try:
         config = load_config()
+
+        # Resolve paths relative to current working directory (not package directory)
         input_file = config["input_file"]
         output_dir = config["output_dir"]
+
+        # If paths are relative, they're relative to cwd
+        if not os.path.isabs(input_file):
+            input_file = os.path.abspath(input_file)
+        if not os.path.isabs(output_dir):
+            output_dir = os.path.abspath(output_dir)
 
         # Clean output directory before generating new reports
         if os.path.exists(output_dir):
@@ -54,7 +62,7 @@ def main():
         yearly_amounts, yearly_counts = an.analyze_by_year(df)
 
         # Create histograms
-        vis.create_yearly_histograms(yearly_amounts, yearly_counts)
+        vis.create_yearly_histograms(yearly_amounts, yearly_counts, output_dir)
 
         # Analyze donation patterns
         one_time, stopped_recur = an.analyze_donation_patterns(df)
@@ -91,7 +99,7 @@ def main():
 
         # Get detailed info for the filtered charities
         char_details = an.get_charity_details(df, top_charities)
-        graph_info = vis.create_charity_yearly_graphs(top_charities, char_details)
+        graph_info = vis.create_charity_yearly_graphs(top_charities, char_details, output_dir)
 
         # Generate HTML report
         print("Generating HTML report...")

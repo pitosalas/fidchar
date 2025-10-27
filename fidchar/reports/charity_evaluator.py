@@ -7,7 +7,7 @@ Handles all charapi dependencies and evaluation calls.
 import yaml
 import traceback
 from charapi.api.charity_evaluator import batch_evaluate
-import core.analysis as an
+from fidchar.core import analysis as an
 
 def get_charity_evaluations(top_charities, charapi_config_path, donation_df, recurring_config=None,
                            one_time=None, stopped_recurring=None):

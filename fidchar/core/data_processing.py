@@ -6,8 +6,8 @@ Handles CSV reading, data cleaning, and type conversion.
 
 import pandas as pd
 import re
-import core.analysis as ca
-import core.visualization as viz
+from fidchar.core import analysis as ca
+from fidchar.core import visualization as viz
 
 def parse_amount(amount_str):
     """Convert amount string like '$1,000.00' to float"""

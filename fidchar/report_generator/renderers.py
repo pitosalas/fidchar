@@ -1,4 +1,4 @@
-from report_generator.models import ReportTable, ReportCard, CardSection
+from fidchar.report_generator.models import ReportTable, ReportCard, CardSection
 
 class TableRenderer:
     def render(self, table: ReportTable) -> str:

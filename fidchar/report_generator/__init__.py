@@ -11,8 +11,8 @@ Usage:
         python -m report_generator.main
 """
 
-from report_generator.models import ReportTable, ReportCard, CardSection
-from report_generator.renderers import (
+from fidchar.report_generator.models import ReportTable, ReportCard, CardSection
+from fidchar.report_generator.renderers import (
     HTMLSectionRenderer,
     HTMLCardRenderer
 )

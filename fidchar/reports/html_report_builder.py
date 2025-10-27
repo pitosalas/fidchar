@@ -8,9 +8,9 @@ Uses Bootstrap CSS and report_generator renderers for cleaner code.
 import pandas as pd
 from datetime import datetime
 from typing import List
-import reports.base_report_builder as brb
-from report_generator.models import ReportTable, ReportCard, CardSection
-from report_generator.renderers import HTMLSectionRenderer, HTMLCardRenderer
+from fidchar.reports import base_report_builder as brb
+from fidchar.report_generator.models import ReportTable, ReportCard, CardSection
+from fidchar.report_generator.renderers import HTMLSectionRenderer, HTMLCardRenderer
 import shutil
 import os
 
@@ -481,13 +481,17 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             css_files=["colors.css", "styles.css"]
         )
 
+        # Get output directory from config
+        output_dir = self.config.get("output_dir", "output")
+
         # Copy CSS files to output directory
         for css_file in ["colors.css", "styles.css"]:
             css_source = os.path.join(os.path.dirname(__file__), css_file)
-            css_dest = f"../output/{css_file}"
+            css_dest = os.path.join(output_dir, css_file)
             shutil.copy(css_source, css_dest)
 
-        with open("../output/donation_analysis.html", "w") as f:
+        html_file_path = os.path.join(output_dir, "donation_analysis.html")
+        with open(html_file_path, "w") as f:
             f.write(html_content)
 
 

@@ -18,9 +18,10 @@ plt.rcParams["axes.spines.right"] = False
 plt.rcParams["axes.spines.top"] = False
 
 
-def create_yearly_histograms(yearly_amounts, yearly_counts):
+def create_yearly_histograms(yearly_amounts, yearly_counts, output_dir):
     # Create images directory if it doesn't exist
-    os.makedirs("../output/images", exist_ok=True)
+    images_dir = os.path.join(output_dir, "images")
+    os.makedirs(images_dir, exist_ok=True)
 
     # Create amount histogram
     fig, ax = plt.subplots(figsize=(8, 4))
@@ -41,7 +42,8 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
     ax.tick_params(left=False, bottom=False)
 
     plt.tight_layout()
-    plt.savefig("../output/images/yearly_amounts.png", dpi=200, bbox_inches="tight",
+    output_file = os.path.join(images_dir, "yearly_amounts.png")
+    plt.savefig(output_file, dpi=200, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
     plt.close()
 
@@ -59,13 +61,16 @@ def create_yearly_histograms(yearly_amounts, yearly_counts):
     ax.tick_params(left=False, bottom=False)
 
     plt.tight_layout()
-    plt.savefig("../output/images/yearly_counts.png", dpi=200, bbox_inches="tight",
+    output_file = os.path.join(images_dir, "yearly_counts.png")
+    plt.savefig(output_file, dpi=200, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
     plt.close()
 
 
-def create_charity_yearly_graphs(top_charities, charity_details):
+def create_charity_yearly_graphs(top_charities, charity_details, output_dir):
     created_graphs = {}
+    images_dir = os.path.join(output_dir, "images")
+    os.makedirs(images_dir, exist_ok=True)
 
     for i, (tax_id, charity_data) in enumerate(top_charities.iterrows(), 1):
         donations = charity_details[tax_id].copy()
@@ -87,12 +92,12 @@ def create_charity_yearly_graphs(top_charities, charity_details):
             amount = yearly_totals.get(year, 0)
             year_amounts.append(amount)
 
-        _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_graphs)
+        _create_single_charity_graph(i, tax_id, year_range, year_amounts, images_dir, created_graphs)
 
     return created_graphs
 
 
-def _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_graphs):
+def _create_single_charity_graph(i, tax_id, year_range, year_amounts, images_dir, created_graphs):
     """Create individual charity graph (split for line length compliance)"""
     # Create very small, embedded thumbnail graph
     fig, ax = plt.subplots(figsize=(3, 1.5))  # Very compact for embedding
@@ -137,7 +142,7 @@ def _create_single_charity_graph(i, tax_id, year_range, year_amounts, created_gr
     plt.tight_layout()
 
     # Save very compact thumbnail
-    filename = f"../output/images/charity_{i:02d}_{tax_id.replace('-', '')}.png"
+    filename = os.path.join(images_dir, f"charity_{i:02d}_{tax_id.replace('-', '')}.png")
     plt.savefig(filename, dpi=100, bbox_inches="tight", pad_inches=0.05,
                 facecolor="white", edgecolor="none")
     plt.close()
