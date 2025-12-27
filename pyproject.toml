@@ -1,3 +1,10 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fidchar*"]
+
 [project]
 name = "fidchar"
 version = "0.1.0"
@@ -6,17 +13,23 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "charapi",
-    "great-tables>=0.18.0",
     "matplotlib>=3.10.6",
     "pandas>=2.3.2",
     "pdfkit>=1.0.0",
     "pytest>=8.4.2",
     "pyyaml>=6.0.3",
+    "report-creator>=1.1.0",
     "requests>=2.32.5",
     "seaborn>=0.13.2",
     "selenium>=4.35.0",
     "tabulate>=0.9.0",
 ]
+
+[project.scripts]
+fidchar = "fidchar.main:main"
+
+[tool.uv]
+package = true
 
 [tool.uv.sources]
 charapi = { path = "../charapi", editable = true }

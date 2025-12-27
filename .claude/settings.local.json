@@ -4,7 +4,8 @@
       "Bash(uv add:*)",
       "Bash(uv run:*)",
       "Read(//Users/pitosalas/mydev/charapi/charapi/**)",
-      "Read(//Users/pitosalas/mydev/charapi/**)"
+      "Read(//Users/pitosalas/mydev/charapi/**)",
+      "Read(//Users/pitosalas/mydev/**)"
     ],
     "deny": [],
     "ask": []

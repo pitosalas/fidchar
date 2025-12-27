@@ -1,10 +1,31 @@
 # Charitable Donation Analysis System - Current State
 
-*Last Updated: October 6, 2025*
+*Last Updated: October 23, 2025*
+
+## 💡 Ideas for Future Enhancements
+
+1. **Use py-box for Configuration Management**
+   - Replace manual YAML dict access with py-box for cleaner dot notation
+   - Would enable `config.input_file` instead of `config["input_file"]`
+   - Provides better attribute access and validation
+   - Lightweight alternative to OmegaConf without Hydra overhead
+
+2. **Add Page Breaks for PDF Printing**
+   - Insert CSS page break hints when HTML is printed to PDF from browser
+   - Use `page-break-before: always` or `page-break-after: always` CSS properties
+   - Ensure each major section starts on a new page in PDF output
+   - Improve professional appearance of printed reports
+
+3. **Code Quality Audit Against rules.md Standards**
+   - Check for imports in the middle of code (should be at top)
+   - Apply YAGNI principle - remove unnecessary abstractions
+   - Identify and eliminate code duplication
+   - Ensure we're not going overboard on error checking
+   - Verify compliance with all rules.md coding standards
 
 ## System Overview
 
-A comprehensive charitable donation analysis system that processes CSV donation data and generates professional reports with visualizations and charity evaluations. The system follows Tufte design principles and provides markdown, text, and HTML outputs with configurable section ordering and parameters.
+A comprehensive charitable donation analysis system that processes CSV donation data and generates professional HTML reports with visualizations and charity evaluations. The system follows Tufte design principles and provides Bootstrap-styled HTML output with configurable section ordering and parameters.
 
 ## Architecture
 
@@ -24,11 +45,14 @@ fidchar/
 │   │   ├── html_report_builder.py    # HTML report sections
 │   │   ├── comprehensive_report.py   # HTML report composition
 │   │   ├── reporting.py              # Console output
-│   │   └── charity_evaluator.py      # Charapi integration
+│   │   ├── charity_evaluator.py      # Charapi integration
+│   │   ├── styles.css                # All CSS (screen + print consolidated)
+│   │   └── colors.css                # Color definitions
 │   ├── tables/                # Table generation
 │   │   └── great_tables_builder.py   # Great Tables HTML generation
 │   ├── main.py                # Orchestration
-│   └── config.yaml            # Configuration file
+│   ├── config.yaml            # Configuration file
+│   └── definitions.md         # Definitions section (Bootstrap grid HTML)
 ├── tests/                     # Unit tests
 │   ├── test_data_processing.py
 │   ├── test_analysis.py
@@ -79,26 +103,23 @@ fidchar/
 - PNG output for all visualizations
 
 ### Reporting
-- **Markdown Report**: Text-based with embedded charts and Great Tables links
-- **Text Report**: Plain text with tabulated data
-- **HTML Report**: Professional with inline Great Tables, CSS styling, and analysis section
-- **Great Tables**: Professional HTML tables with configurable font sizes
+- **HTML Report**: Professional Bootstrap 5.3.2 styling with `report_generator` renderers
+- **Report Generator**: Reusable module for data-driven table/card rendering
+  - `ReportTable` and `ReportCard` data models
+  - HTML renderers for Bootstrap components
+  - Bootstrap card components with sections (text, key_value, list, progress_bar, table)
+  - Text/Markdown renderers kept in library for potential reuse
 - **Section Ordering**: Fully configurable via YAML config
 - **Configurable Parameters**: min_years, min_amount, sort_by, max_shown
 - **PDF Generation**: Browser-based (Print to PDF)
 
 ## Configuration System
 
-### YAML Configuration (`config.yaml`)
+### YAML Configuration (`fidchar/config.yaml`)
 ```yaml
 # Input/Output
 input_file: "../data.csv"
 output_dir: "../output"
-
-# Report Generation
-generate_html: true
-generate_markdown: true
-generate_textfile: false
 
 # Section Ordering with Options
 sections:
@@ -118,12 +139,7 @@ sections:
   - name: detailed      # Detailed Analysis
   - name: analysis      # Strategic Analysis (Efficiency Frontier)
 
-# API Configuration
-charity_navigator:
-  app_id: "3069"
-  app_key: null  # Set via CHARITY_NAVIGATOR_APP_KEY environment variable
-
-# Charapi Integration
+# Charapi Integration (handles all Charity Navigator API access)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 ```
 
@@ -139,7 +155,7 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 
 ### External Dependencies
 - `uv` - Python package management
-- `charapi` - Charity evaluation system (separate project)
+- `charapi` - Charity evaluation system (separate project, exclusive source for Charity Navigator data)
 - Browser with Print to PDF capability
 
 ## Current Status
@@ -157,6 +173,12 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - Updated HTML report to include analysis section
 - Comprehensive unit test suite
 - Moved obsolete files to archive/
+- **CSS Consolidation**: Merged print.css into styles.css (single CSS file for all styling)
+- **Definitions Section**: Uses Bootstrap grid (`.row`/`.col-md-6`) with HTML embedded in markdown
+- **Section Classes**: Added section-specific CSS classes (`.section-definitions`, `.section-detailed`, etc.)
+- **Simplified Print**: 80% font scaling for definitions section, page breaks between rows
+- **Typography**: h1 dark grey (#4a4a4a), h2 dark blue (#1a3a6b)
+- **Bootstrap-First**: Minimal custom CSS, Bootstrap handles most layout and styling
 
 ### 📋 Active Configuration Options
 1. ✅ `recurring.max_shown` - Maximum rows in recurring donations table
@@ -191,24 +213,24 @@ cd /Users/pitosalas/mydev/fidchar/fidchar/
 uv run python main.py
 ```
 
+### Configuration
+To modify configuration parameters, edit `fidchar/config.yaml` directly.
+
 ### Output
 ```
 Cleaned output directory
 Processing input file: ../data.csv
-Creating analysis visualizations...
-Generating reports...
-Generating Great Tables HTML files...
-Reports generated: comprehensive_report.html, donation_analysis.md in the output directory
+Identified 42 focus charities
+Generating HTML report...
+Report generated: donation_analysis.html in the output directory
 ```
 
 ### Generated Files
-- `comprehensive_report.html` - Professional HTML report with Great Tables and analysis
-- `donation_analysis.md` - Markdown analysis report
-- `donation_analysis.txt` - Plain text report (if enabled)
-- `gt_*.html` - Individual Great Tables (categories, yearly, consistent, top charities)
-- `yearly_*.png` - Yearly trend charts
-- `charity_*.png` - Individual charity trend graphs
-- `efficiency_frontier.png` - Strategic analysis visualization
+- `donation_analysis.html` - Professional HTML report with Bootstrap styling and visualizations
+- `images/` - Directory containing all generated charts and visualizations
+  - `yearly_*.png` - Yearly trend charts
+  - `charity_*.png` - Individual charity trend graphs
+  - `efficiency_frontier.png` - Strategic analysis visualization
 
 ## System Health
 
@@ -254,8 +276,9 @@ Reports generated: comprehensive_report.html, donation_analysis.md in the output
 
 ### Report Architecture
 - **Base Classes**: BaseReportBuilder provides common functionality
-- **Formatters**: HTMLFormatter, MarkdownFormatter, TextFormatter for DRY output
-- **Inheritance**: MarkdownReportBuilder, TextReportBuilder extend base
+- **HTML-Only**: System generates only professional HTML reports with Bootstrap 5.3.2 styling
+- **Report Generator**: Separate reusable library for table/card rendering (supports Text/Markdown/HTML)
+- **Simple Configuration**: YAML-based configuration with no external framework dependencies
 
 ---
 

@@ -35,7 +35,7 @@ def test_returns_empty_when_no_charity_reaches_min_years():
         {"Tax ID": "11", "Organization": "A", "Amount_Numeric": 100, "Year": current_year, "Submit Date": pd.Timestamp(f"{current_year}-01-10"), "Recurring": "Annually"},
         {"Tax ID": "22", "Organization": "B", "Amount_Numeric": 200, "Year": current_year-1, "Submit Date": pd.Timestamp(f"{current_year-1}-02-10"), "Recurring": "Annually"},
     ])
-    result = analyze_recurring_donations(df)
+    result = analyze_recurring_donations(df, "total", 4, 4)
     assert result.empty
 
 
@@ -49,7 +49,7 @@ def test_includes_charity_with_four_years():
             "Recurring": "Annually"
         })
     df = build_df(rows)
-    result = analyze_recurring_donations(df)
+    result = analyze_recurring_donations(df, "total", 4, 4)
     assert len(result) == 1
     row = result.iloc[0]
     assert row['EIN'] == '11'
@@ -70,7 +70,7 @@ def test_sorts_by_total_descending_when_multiple():
         rows.append({"Tax ID": "22", "Organization": "B", "Amount_Numeric": amount, "Year": current_year - offset, "Submit Date": pd.Timestamp(f"{current_year - offset}-02-01"), "Recurring": "Annually"})
 
     df = build_df(rows)
-    result = analyze_recurring_donations(df)
+    result = analyze_recurring_donations(df, "total", 4, 4)
     assert list(result['EIN']) == ['22', '11']
 
 
@@ -85,7 +85,7 @@ def test_respects_sort_by_annual():
         rows.append({"Tax ID": "22", "Organization": "B", "Amount_Numeric": 150, "Year": current_year - offset, "Submit Date": pd.Timestamp(f"{current_year - offset}-02-05"), "Recurring": "Annually"})
 
     df = build_df(rows)
-    result = analyze_recurring_donations(df, sort_by="annual")
+    result = analyze_recurring_donations(df, "annual", 4, 4)
     # 11 should come before 22 because 162.5 > 150
     assert list(result['EIN']) == ['11', '22']
 
@@ -96,7 +96,7 @@ def test_ignores_extra_columns_if_present():
     for offset, amount in enumerate([50, 50, 50, 50]):
         rows.append({"Tax ID": "X", "Organization": "XOrg", "Amount_Numeric": amount, "Year": current_year - offset, "Submit Date": pd.Timestamp(f"{current_year - offset}-04-01"), "Unused": "ignore", "Recurring": "Annually"})
     df = build_df(rows)
-    result = analyze_recurring_donations(df)
+    result = analyze_recurring_donations(df, "total", 4, 4)
     assert 'Unused' not in result.columns
     assert len(result) == 1
 

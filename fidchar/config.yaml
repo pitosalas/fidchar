@@ -1,24 +1,19 @@
 # Charitable Donation Analysis Configuration
 
-# Input data file path
-input_file: "../data.csv"
-
-# Output format settings
-generate_html: true       # Generate html
-generate_markdown: true   # Generate markdown analysis report
-generate_textfile: false # A simple text file
+# Input data file path (relative to where you run the command)
+input_file: "data.csv"
 
 # Report sections in order with  optional configuration
 # Available sections:
 # - exec: Executive Summary
 # - sectors: Donation Analysis by Charitable Sector
-# - consistent: Consistent Donations Analysis
 # - yearly: Yearly Donation Analysis
-# - top_charities: Top 10 Charities by Total Donations
+# - top_charities: Top N Charities by Total Donations
+# - recurring_summary: Recurring Charities Summary (EIN, name, total donated, last donation date)
+# - remaining: Remaining Charities (multi-year, multi-donation but not recurring)
 # - patterns: One-Time vs Recurring Donation Patterns
-# - recurring: Recurring Donations List
-# - detailed: Detailed Analysis of Top 10 Charities
-# - analysis: Strategic Analysis Visualizations
+# - detailed: Detailed Analysis of Top N Charities
+# - definitions: Definitions of terms used in the report
 
 sections:
   - name: exec
@@ -26,55 +21,62 @@ sections:
 
   - name: sectors
     # Donation Analysis by Charitable Sector
-    # options:
-    #   show_percentages: true
-
-  - name: consistent
-    # Consistent Donations Analysis
-    # options:
-    min_years: 10
-    min_amount: 1000
+    options:
+      show_percentages: true
 
   - name: yearly
     # Yearly Donation Analysis
-    # options:
+    options:
     #   include_charts: true
+      include: false
 
   - name: top_charities
     # Top 10 Charities by Total Donations
-    # options:
-    #   count: 10
-
-  - name: recurring
-    # Recurring Donations List
     options:
-      max_shown: 90
-      sort_by: "total"  # "total" or "annual"
-      min_years: 4  # Minimum years of donations to be considered recurring
+      count: 20
+
+  - name: recurring_summary
+    # Recurring Charities Summary - simple list with last donation and total
+    options:
+      max_recurring_shown: 100
+
+  - name: remaining
+    # Remaining Charities - multi-year, multi-donation but not recurring
+    options:
+      max_remaining_shown: 100
 
   - name: patterns
     # One-Time vs Recurring Donation Patterns
-    # options:
-    #   max_one_time_shown: 20
+    options:
+      max_one_time_shown: 100
+      max_stopped_shown:  100
+    
 
   - name: detailed
-    # Detailed Analysis of Top 10 Charities
+    # Detailed Analysis of Top Charities
     # options:
     #   include_descriptions: true
 
-  - name: analysis
-    # Strategic Analysis Visualizations
-    # options:
-    #   include_impact_commitment: true
-    #   include_efficiency_frontier: true
+  - name: definitions
+    # Definitions of terms used in the report
 
-# Output directory
-output_dir: "../output"
-
-# Charity Navigator API settings (optional)
-charity_navigator:
-  app_id: "3069"
-  app_key: null  # Set environment variable CHARITY_NAVIGATOR_APP_KEY
+# Output directory (relative to where you run the command)
+output_dir: "output"
 
 # Charapi configuration path (for charity evaluations)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
+
+# Recurring charity determination (based on YOUR donation patterns)
+# A charity is "recurring" if you donated to them regularly in recent years
+recurring_charity:
+  enabled: true
+  count: 15           # Look at last 15 years
+  min_years: 5        # Must have donated in at least 5 of those years
+  min_amount: 1000    # Each qualifying year must have >= $1000 in donations
+
+# For consideration criteria (charities to include in detailed analysis even if not in top N)
+# These charities meet quality thresholds and warrant consideration
+for_consideration:
+  enabled: true
+  min_alignment_score: 70        # Minimum alignment score (0-100)
+  min_evaluation_score: 70       # Minimum evaluation score (0-100, based on outstanding/acceptable metrics)

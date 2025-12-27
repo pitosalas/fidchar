@@ -1,0 +1,247 @@
+/* ========================================
+   FIDCHAR REPORT STYLES
+   Custom styles - only what Bootstrap doesn't provide
+   ======================================== */
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+/* Color scheme for headings */
+h2, h3 {
+    color: #1a3a6b;
+}
+
+/* ========================================
+   LAYOUT - SCREEN ONLY
+   ======================================== */
+
+@media screen {
+    .container {
+        margin-top: 3rem;
+        margin-bottom: 3rem;
+    }
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.table {
+    font-size: 0.875rem;
+}
+
+.table-sm {
+    font-size: 0.8rem;
+}
+
+/* ========================================
+   SECTION-SPECIFIC SIZING
+   ======================================== */
+
+.section-detailed {
+    font-size: 0.79rem;  /* 90% of body's 0.875rem */
+}
+
+p.detail-narrative {
+    font-size: 0.7rem;
+    margin-bottom: 0.5rem;
+
+}
+.section-definitions {
+    font-size: 0.7rem;  /* 80% of body's 0.875rem */
+}
+
+/* Definitions section heading sizes */
+.section-definitions h2 {
+    font-size: 1.4rem;
+}
+
+.section-definitions h3 {
+    font-size: 1.2rem;
+}
+
+.section-definitions h4 {
+    font-size: 1.1rem;
+}
+
+/* Definitions section: black borders between rows and columns */
+.section-definitions .border-bottom {
+    border-bottom-color: #000 !important;
+}
+
+.section-definitions .border-dark {
+    border-color: #000 !important;
+}
+
+/* ========================================
+   DETAIL CARDS (CHARITY CARDS)
+   ======================================== */
+
+/* Screen layout: side-by-side 2-column grid */
+.section-detailed .card {
+    width: 49%;
+    display: inline-block;
+    margin-right: 1%;
+    margin-bottom: 8px;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+
+/* Remove padding from card body and rows for tight layout */
+.section-detailed .card .card-body {
+    padding: 0;
+}
+
+.section-detailed .card .card-body .row {
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.section-detailed .card .card-body .row:first-child {
+    padding-bottom: 0;
+}
+
+/* Reduce margin on definition lists in detail cards */
+.section-detailed .card dl {
+    margin-bottom: 0.25rem;
+}
+
+/* Internal borders between subsections */
+.card .border-bottom {
+    border-bottom: 1px solid #000 !important;
+}
+
+.card .border-end {
+    border-right: 1px solid #000 !important;
+}
+
+/* Truncate long charity names in card headers */
+.card-header h5 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ========================================
+   BADGES
+   ======================================== */
+
+.charity-badge {
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    /* Typography - colors and sizes */
+    body, p, li, td, th, span, h1, h4, h5, h6, a, div {
+        color: black !important;
+    }
+
+    body, p, li, td, th, span {
+        font-size: 0.61rem !important;  /* 70% of body's 0.875rem */
+    }
+
+    h1 {
+        font-size: 1.5rem !important;
+    }
+
+    h2 {
+        font-size: 1.25rem !important;
+        color: #1a3a6b !important;
+    }
+
+    h3 {
+        color: #1a3a6b !important;
+    }
+
+    /* Detail cards: 2x2 grid layout (4 cards per page) */
+    .section-detailed .card {
+        width: 48%;
+        float: left;
+        margin-right: 2%;
+        margin-bottom: 0.3cm;
+        page-break-inside: avoid;
+        box-sizing: border-box;
+    }
+
+    .section-detailed .card:nth-of-type(2n) {
+        margin-right: 0;
+    }
+
+    .section-detailed .card:nth-of-type(2n+1) {
+        clear: left;
+    }
+
+    .section-detailed .card:nth-of-type(4n) {
+        page-break-after: always;
+        margin-bottom: 0;
+    }
+
+    /* Detail card header: white text on blue background (same as screen), smaller font */
+    .section-detailed .card-header {
+        background-color: #0d6efd !important;
+        color: white !important;
+        padding: 0.25rem 0.5rem !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .section-detailed .card-header h5 {
+        font-size: 0.9rem !important;
+        color: white !important;
+    }
+
+    /* Detail card definition lists: smaller fonts, less padding */
+    .section-detailed .card dl {
+        margin-bottom: 0 !important;
+    }
+
+    .section-detailed .card dt,
+    .section-detailed .card dd {
+        font-size: 0.65rem !important;
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+        margin-bottom: 0.1rem !important;
+    }
+
+    /* Page break control */
+    h2, h3, .section-title {
+        page-break-after: avoid;
+    }
+
+    .report-section {
+        page-break-before: always;
+    }
+
+    /* Don't break before first section, sectors, or yearly */
+    .report-section:first-of-type,
+    .section-sectors,
+    .section-yearly {
+        page-break-before: auto;
+    }
+
+    /* Yearly table on new page after graphs */
+    .section-yearly .table-responsive {
+        page-break-before: always;
+    }
+
+    /* Definitions: smaller font and page breaks between rows */
+    .section-definitions {
+        font-size: 0.6rem !important;  /* 80% of body's 0.875rem */
+    }
+
+    .section-definitions .row {
+        page-break-before: always;
+    }
+
+    .section-definitions .row:first-child {
+        page-break-before: auto;
+    }
+}

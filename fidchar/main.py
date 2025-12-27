@@ -6,41 +6,44 @@ Coordinates data processing, analysis, visualization, and reporting.
 import os
 import shutil
 import yaml
-import core.data_processing as cdp
-import core.analysis as ca
-import core.visualization as viz
-import reports.markdown_report_builder as mark 
-import reports.text_report_builder as txt
-import reports.charity_evaluator as char
-import reports.comprehensive_report as html
-import tables.great_tables_builder as tab
+from fidchar.core import data_processing as dp
+from fidchar.core import analysis as an
+from fidchar.core import visualization as vis
+from fidchar.reports import charity_evaluator as ev
+from fidchar.reports import html_report_builder as hrb
+from fidchar.reports import base_report_builder as brb
 
 
 def load_config():
-    """Load configuration from YAML file"""
+    """Load configuration from YAML file."""
+    config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
     try:
-        with open("config.yaml", "r") as f:
-            config = yaml.safe_load(f)
-        return config
+        with open(config_path, "r") as f:
+            return yaml.safe_load(f)
     except FileNotFoundError:
-        print("Warning: config.yaml not found, using defaults")
+        print(f"Warning: {config_path} not found, using defaults")
         return {
             "input_file": "../data.csv",
-            "generate_html": False,
-            "generate_markdown": False,
-            "generate_textfile": True,
-            "sections": [1, 2, 3, 4, 5, 6, 7],
             "output_dir": "../output",
-            "charity_navigator": {"app_id": "3069", "app_key": None}
+            "sections": [],
+            "charapi_config_path": None
         }
 
 
 def main():
+    """Main entry point for donation analysis."""
     try:
-        # Load configuration
         config = load_config()
+
+        # Resolve paths relative to current working directory (not package directory)
         input_file = config["input_file"]
         output_dir = config["output_dir"]
+
+        # If paths are relative, they're relative to cwd
+        if not os.path.isabs(input_file):
+            input_file = os.path.abspath(input_file)
+        if not os.path.isabs(output_dir):
+            output_dir = os.path.abspath(output_dir)
 
         # Clean output directory before generating new reports
         if os.path.exists(output_dir):
@@ -50,101 +53,76 @@ def main():
 
         # Read the donation data
         print(f"Processing input file: {input_file}")
-        df = cdp.read_donation_data(input_file)
+        df = dp.read_donation_data(input_file)
 
         # Analyze by category
-        category_totals = ca.analyze_by_category(df)
+        category_totals = an.analyze_by_category(df)
 
         # Analyze by year
-        yearly_amounts, yearly_counts = ca.analyze_by_year(df)
+        yearly_amounts, yearly_counts = an.analyze_by_year(df)
 
         # Create histograms
-        viz.create_yearly_histograms(yearly_amounts, yearly_counts)
+        vis.create_yearly_histograms(yearly_amounts, yearly_counts, output_dir)
 
         # Analyze donation patterns
-        one_time, stopped_recurring = ca.analyze_donation_patterns(df)
+        one_time, stopped_recur = an.analyze_donation_patterns(df)
 
-        # Analyze consistent donors with configured parameters
-        consistent_config = next((s.get("options", {}) for s in config.get("sections", [])
-                                 if isinstance(s, dict) and s.get("name") == "consistent"), {})
-        min_years = consistent_config.get("min_years", 5)
-        min_amount = consistent_config.get("min_amount", 500)
-        consistent_donors = ca.analyze_consistent_donors(df, min_years, min_amount)
+        # Get all charities for evaluation (we'll filter later)
+        top_char_cfg = _get_section_options(config, "top_charities")
+        top_n = top_char_cfg.get("count", 10)
 
-        # Analyze recurring donations with configured parameters
-        recurring_config = next((s.get("options", {}) for s in config.get("sections", [])
-                                if isinstance(s, dict) and s.get("name") == "recurring"), {})
-        sort_by = recurring_config.get("sort_by", "total")
-        min_years_recurring = recurring_config.get("min_years", 4)
-        recurring_donations = ca.analyze_recurring_donations(df, sort_by, min_years_recurring, 4)
+        # Get ALL charities by donation amount (not limited yet)
+        all_charities = df.groupby("Tax ID").agg({
+            "Amount_Numeric": "sum",
+            "Organization": "first"
+        }).sort_values("Amount_Numeric", ascending=False)
 
-        # Analyze top charities using config
-        app_id = config["charity_navigator"]["app_id"]
-        app_key = config["charity_navigator"]["app_key"] or os.getenv("CHARITY_NAVIGATOR_APP_KEY")
-        top_charities, charity_details, charity_descriptions, graph_info = cdp.analyze_top_charities(
-            df, 10, app_id, app_key)
+        # Get charity evaluations for ALL charities (includes recurring determination)
+        charapi_cfg_path = config.get("charapi_config_path")
+        recurring_config = config.get("recurring_charity")
+        char_evals, recurring_ein_set = ev.get_charity_evaluations(
+            all_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
+        )
 
-        # Get charity evaluations from charapi
-        charapi_config_path = config.get("charapi_config_path")
-        charity_evaluations = char.get_charity_evaluations(top_charities, charapi_config_path)
+        # Now filter to top N by amount + those meeting for_consideration criteria
+        top_by_amount = set(all_charities.head(top_n).index)
 
-        # Create analysis visualizations
-        print("Creating analysis visualizations...")
-        viz.create_efficiency_frontier(df, charity_evaluations)
+        # Add charities meeting for_consideration criteria
+        # Use BaseReportBuilder's for_consideration method to avoid duplicating logic
+        temp_builder = brb.BaseReportBuilder(df, config, {}, {}, char_evals, set())
+        for ein in all_charities.index:
+            if ein not in top_by_amount and temp_builder.for_consideration(ein):
+                top_by_amount.add(ein)
 
-        # Generate reports
-        print("Generating reports...")
+        # Filter all_charities to only include selected EINs, then sort alphabetically
+        top_charities = all_charities.loc[list(top_by_amount)].sort_values("Organization")
 
-        if config.get("generate_html", False):
-            total_amount = category_totals.sum()
-            html_report = html.create_comprehensive_html_report(
-                category_totals, yearly_amounts, yearly_counts, consistent_donors,
-                top_charities, total_amount, df, one_time, stopped_recurring,
-                charity_details, charity_descriptions, graph_info
-            )
+        # Get detailed info for the filtered charities
+        char_details = an.get_charity_details(df, top_charities)
+        graph_info = vis.create_charity_yearly_graphs(top_charities, char_details, output_dir)
 
-            gt_categories = tab.create_gt_category_table(category_totals, total_amount)
-            gt_yearly = tab.create_gt_yearly_table(yearly_amounts, yearly_counts)
-            gt_consistent = tab.create_gt_consistent_donors_table(consistent_donors)
-            gt_top_charities = tab.create_gt_top_charities_table(top_charities)
+        # Generate HTML report
+        print("Generating HTML report...")
 
-            consistent_total = sum(donor['total_5_year'] for donor in consistent_donors.values())
-            html_report = html.add_table_sections_to_report(
-                html_report, gt_consistent, gt_categories,
-                gt_yearly, gt_top_charities, consistent_total, recurring_donations, config
-            )
+        html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, recurring_ein_set)
+        html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
+                                    stopped_recur, top_charities)
 
-            html_report = html.add_detailed_charity_analysis(
-                html_report, top_charities, charity_details, charity_descriptions,
-                graph_info, charity_evaluations
-            )
-            with open(f"{output_dir}/comprehensive_report.html", "w") as f:
-                f.write(html_report)
+        print("Report generated: donation_analysis.html in the output directory")
 
-        if config.get("generate_markdown", False):
-            markdown_builder = mark.MarkdownReportBuilder(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
-            markdown_builder.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
-                                            stopped_recurring, top_charities, consistent_donors, recurring_donations)
-
-        if config.get("generate_textfile", False):
-            text_builder = txt.TextReportBuilder(df, config, charity_details, charity_descriptions, graph_info, charity_evaluations)
-            text_builder.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
-                                        stopped_recurring, top_charities, consistent_donors, recurring_donations)
-
-        files_generated = []
-        if config.get("generate_html", False):
-            files_generated.append("comprehensive_report.html")
-        if config.get("generate_markdown", False):
-            files_generated.append("donation_analysis.md")
-        if config.get("generate_textfile", False):
-            files_generated.append("donation_analysis.txt")
-
-        print(f"Reports generated: {', '.join(files_generated)} in the output directory")
-
-    except FileNotFoundError:
-        print("Error: data.csv file not found")
+    except FileNotFoundError as e:
+        print(f"Error: File not found - {e}")
     except Exception as e:
         print(f"Error processing data: {e}")
+        raise
+
+
+def _get_section_options(config: dict, section_name: str) -> dict:
+    """Helper to extract section options from config."""
+    for section in config.get("sections", []):
+        if isinstance(section, dict) and section.get("name") == section_name:
+            return section.get("options", {})
+    return {}
 
 
 if __name__ == "__main__":
