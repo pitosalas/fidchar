@@ -12,3 +12,6 @@ output/
 
 # macOS files
 .DS_Store
+
+data.csv
+uv.lock
