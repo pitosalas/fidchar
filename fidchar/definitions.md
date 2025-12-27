@@ -3,11 +3,18 @@
 :begin-left
 
 ### Recurring Charity
-A charity that meets specific criteria based on your giving history:
+A charity identified as recurring through one or both methods:
+
+**Pattern-Based (Historical Analysis):**
 - You donated to them in the previous calendar year
 - You donated at least the minimum amount in at least the minimum number of years within the recent period
 - Default criteria: At least 5 years of donations ≥ $1,000 in the last 15 years
 - Identified automatically from your donation data
+
+**CSV Field-Based (Fidelity Export):**
+- Marked as recurring in the "Recurring" field of the CSV export
+- Indicates you set up recurring donations through Fidelity Charitable
+- Shows actual recurring commitments (annually, semi-annually, quarterly)
 
 ### One-Time Donation
 Organizations to which you donated exactly once in your entire donation history. These may represent:
@@ -172,16 +179,27 @@ The report can be customized via `config.yaml`:
 - Final list is sorted **alphabetically by organization name**
 
 #### Patterns Section
-- `max_one_time_shown`: Maximum one-time donations to display (default: 20)
-- `max_stopped_shown`: Maximum stopped recurring donations to display (default: 15)
+- `max_one_time_shown`: Maximum one-time donations to display (default: 100)
+- `max_stopped_shown`: Maximum stopped recurring donations to display (default: 100)
 
 #### Recurring Summary Section
-- `max_recurring_shown`: Maximum recurring charities to display (default: 20)
+- `max_recurring_shown`: Maximum recurring charities to display (default: 100)
+
+#### CSV-Based Recurring Section
+- `max_shown`: Maximum CSV-based recurring charities to display (default: 100)
+- Shows charities with total donated, donation count, and years (YY format)
 
 #### Recurring Charity Criteria
+
+**Pattern-Based Method:**
+- `enabled`: Enable pattern-based recurring detection (default: true)
 - `count`: Years of history to consider (default: 15)
 - `min_years`: Minimum years of qualifying donations (default: 5)
 - `min_amount`: Minimum donation per qualifying year (default: $1,000)
+
+**CSV Field-Based Method:**
+- `enabled`: Enable CSV field-based recurring detection (default: true)
+- Uses the "Recurring" field from Fidelity's CSV export
 
 #### For Consideration Criteria
 - `enabled`: Enable/disable for consideration feature (default: true)
