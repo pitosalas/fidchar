@@ -68,8 +68,7 @@ def main():
         one_time, stopped_recur = an.analyze_donation_patterns(df)
 
         # Get all charities for evaluation (we'll filter later)
-        top_char_cfg = _get_section_options(config, "top_charities")
-        top_n = top_char_cfg.get("count", 10)
+        top_n = config.get("top_charities_count", 10)
 
         # Get ALL charities by donation amount (not limited yet)
         all_charities = df.groupby("Tax ID").agg({
@@ -80,7 +79,7 @@ def main():
         # Get charity evaluations for ALL charities (includes recurring determination)
         charapi_cfg_path = config.get("charapi_config_path")
         recurring_config = config.get("recurring_charity")
-        char_evals, recurring_ein_set = ev.get_charity_evaluations(
+        char_evals, recurring_ein_set, pattern_based_ein_set = ev.get_charity_evaluations(
             all_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
         )
 
@@ -89,7 +88,7 @@ def main():
 
         # Add charities meeting for_consideration criteria
         # Use BaseReportBuilder's for_consideration method to avoid duplicating logic
-        temp_builder = brb.BaseReportBuilder(df, config, {}, {}, char_evals, set())
+        temp_builder = brb.BaseReportBuilder(df, config, {}, {}, char_evals, set(), set())
         for ein in all_charities.index:
             if ein not in top_by_amount and temp_builder.for_consideration(ein):
                 top_by_amount.add(ein)
@@ -104,7 +103,7 @@ def main():
         # Generate HTML report
         print("Generating HTML report...")
 
-        html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, recurring_ein_set)
+        html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, recurring_ein_set, pattern_based_ein_set)
         html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                     stopped_recur, top_charities)
 

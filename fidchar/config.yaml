@@ -9,7 +9,10 @@ input_file: "data.csv"
 # - sectors: Donation Analysis by Charitable Sector
 # - yearly: Yearly Donation Analysis
 # - top_charities: Top N Charities by Total Donations
-# - recurring_summary: Recurring Charities Summary (EIN, name, total donated, last donation date)
+# - combined_recurring: Combined Recurring Charities (rule-based + CSV-based with Source column)
+# - recurring_summary: Recurring Charities Summary (rule-based only, EIN, name, total donated, last donation date)
+# - csv_recurring: CSV-Based Recurring Charities (Fidelity's recurring field only)
+# - all_charities: All Charities (comprehensive list with CSV/Rule indicators, years, current year amount)
 # - remaining: Remaining Charities (multi-year, multi-donation but not recurring)
 # - patterns: One-Time vs Recurring Donation Patterns
 # - detailed: Detailed Analysis of Top N Charities
@@ -35,26 +38,26 @@ sections:
     options:
       count: 20
 
-  - name: recurring_summary
-    # Recurring Charities Summary - simple list with last donation and total
-    options:
-      max_recurring_shown: 100
+  # - name: combined_recurring
+  #   # Combined Recurring Charities - includes both rule-based and CSV-based with Source column
+  #   options:
+  #     max_shown: 100
 
-  - name: csv_recurring
-    # CSV-based recurring charities from Fidelity's Recurring field
-    options:
-      max_shown: 100
+  - name: all_charities
+    # All Charities - comprehensive list with CSV/Rule indicators, years, current year amount
+    # options:
+      # max_shown: 200  # Omit to show all charities
 
-  - name: remaining
-    # Remaining Charities - multi-year, multi-donation but not recurring
-    options:
-      max_remaining_shown: 100
+  # - name: remaining
+  #   # Remaining Charities - multi-year, multi-donation but not recurring
+  #   options:
+  #     max_remaining_shown: 100
 
-  - name: patterns
-    # One-Time vs Recurring Donation Patterns
-    options:
-      max_one_time_shown: 100
-      max_stopped_shown:  100
+  # - name: patterns
+  #   # One-Time vs Recurring Donation Patterns
+  #   options:
+  #     max_one_time_shown: 100
+  #     max_stopped_shown:  100
     
 
   - name: detailed
@@ -70,6 +73,9 @@ output_dir: "output"
 
 # Charapi configuration path (for charity evaluations)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
+
+# Top charities configuration
+top_charities_count: 25  # Number of top charities to include in detailed analysis
 
 # Recurring charity determination - two methods available
 recurring_charity:

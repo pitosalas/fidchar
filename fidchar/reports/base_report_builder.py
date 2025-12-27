@@ -8,13 +8,14 @@ import pandas as pd
 class BaseReportBuilder:
     """Base class for report builders with shared state and common logic"""
 
-    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None):
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None, pattern_based_ein_set=None):
         self.df = df
         self.config = config
         self.charity_details = charity_details
         self.graph_info = graph_info
         self.charity_evaluations = charity_evaluations
         self.recurring_ein_set = recurring_ein_set or set()
+        self.pattern_based_ein_set = pattern_based_ein_set or set()
 
     def extract_charity_details(self, tax_id):
         """Extract common charity details - single implementation"""
@@ -420,3 +421,183 @@ class BaseReportBuilder:
             'count': total_count,
             'total': total_amount
         }
+
+    def prepare_combined_recurring_data(self, csv_recurring_df, max_shown=100):
+        """Prepare combined recurring charities data from both rule-based and CSV sources.
+
+        Combines charities from:
+        1. Rule-based recurring (in self.recurring_ein_set)
+        2. CSV-based recurring (from csv_recurring_df)
+
+        Args:
+            csv_recurring_df: DataFrame with CSV-based recurring charities (from get_csv_recurring_details)
+            max_shown: Maximum number to show (default: 100)
+
+        Returns:
+            DataFrame with columns: Organization, Total, Count, Years, Source
+            where Source is 'rule', 'csv', or 'both'
+        """
+        from fidchar.core import analysis as an
+
+        # Get stopped recurring EINs FIRST (from analyze_donation_patterns)
+        from datetime import datetime
+        current_year = datetime.now().year
+        org_donations = self.df.groupby("Tax ID").agg({
+            "Amount_Numeric": ["sum", "count"],
+            "Submit Date": ["min", "max"],
+            "Recurring": "first",
+            "Organization": "first"
+        }).round(2)
+        org_donations.columns = ["Total_Amount", "Donation_Count", "First_Date", "Last_Date", "Recurring_Status", "Organization_Name"]
+
+        stopped_recurring = org_donations[
+            (org_donations["Donation_Count"] > 1) &
+            (org_donations["Last_Date"].dt.year < current_year - 1) &
+            (org_donations["Recurring_Status"].str.contains("annually|semi-annually", case=False, na=False))
+        ]
+        stopped_eins = set(stopped_recurring.index)
+
+        # Get CSV recurring EINs (excluding stopped ones)
+        csv_eins_all = set(csv_recurring_df.index) if csv_recurring_df is not None and not csv_recurring_df.empty else set()
+        csv_eins = csv_eins_all - stopped_eins  # Remove stopped from active CSV
+
+        # Get rule-based recurring EINs (excluding stopped ones - though rule-based shouldn't include stopped anyway)
+        rule_eins = self.recurring_ein_set - stopped_eins
+
+        # Get all unique EINs (include rule, csv, AND stopped)
+        all_eins = csv_eins | rule_eins | stopped_eins
+
+        if not all_eins:
+            return None
+
+        # Build combined data
+        rows = []
+        for ein in all_eins:
+            org_df = self.df[self.df['Tax ID'] == ein]
+            if org_df.empty:
+                continue
+
+            # Determine source
+            in_csv = ein in csv_eins
+            in_rule = ein in rule_eins
+            in_stopped = ein in stopped_eins
+
+            # Determine source label
+            if in_stopped:
+                # Stopped recurring - check what it was originally
+                was_in_csv = ein in csv_eins_all
+                was_in_rule = ein in self.recurring_ein_set
+
+                if was_in_csv and was_in_rule:
+                    source = 'stopped (was both)'
+                elif was_in_csv:
+                    source = 'stopped (was csv)'
+                elif was_in_rule:
+                    source = 'stopped (was rule)'
+                else:
+                    source = 'stopped'
+            elif in_csv and in_rule:
+                source = 'both'
+            elif in_csv:
+                source = 'csv'
+            else:
+                source = 'rule'
+
+            # Get charity details
+            org_name = org_df['Organization'].iloc[0]
+            total = org_df['Amount_Numeric'].sum()
+            count = len(org_df)
+            years = ', '.join(sorted(set(str(y)[-2:] for y in org_df['Year'])))
+
+            rows.append({
+                'EIN': ein,
+                'Organization': org_name,
+                'Total': total,
+                'Count': count,
+                'Years': years,
+                'Source': source
+            })
+
+        # Create DataFrame and sort by total
+        result_df = pd.DataFrame(rows)
+        result_df = result_df.set_index('EIN')
+        result_df = result_df.sort_values('Total', ascending=False)
+
+        # Limit to max_shown
+        if len(result_df) > max_shown:
+            result_df = result_df.head(max_shown)
+
+        return result_df
+
+    def prepare_all_charities_data(self, csv_recurring_df, max_shown=None):
+        """Prepare comprehensive list of all charities with detailed columns.
+
+        Columns:
+        - Organization: Charity name
+        - Total: Total donated across all years
+        - CSV: "✓" if in CSV recurring field
+        - Rule: "✓" if meets rule-based recurring criteria
+        - Years: List of years that received donations (e.g., "10,11,12,13,14,15")
+        - 2025: Amount donated in 2025
+        - Count: Total number of donations
+
+        Args:
+            csv_recurring_df: DataFrame with CSV-based recurring charities
+            max_shown: Maximum number to show (default: None = show all)
+
+        Returns:
+            DataFrame with all charities sorted by total donation amount
+        """
+        from fidchar.core import analysis as an
+        from datetime import datetime
+
+        # Get CSV recurring EINs
+        csv_eins = set(csv_recurring_df.index) if csv_recurring_df is not None and not csv_recurring_df.empty else set()
+
+        # Get rule-based recurring EINs (pattern-based only, not combined)
+        rule_eins = self.pattern_based_ein_set
+
+        # Get all charities
+        all_charities = self.df.groupby('Tax ID').agg({
+            'Organization': 'first',
+            'Amount_Numeric': 'sum'
+        }).sort_values('Amount_Numeric', ascending=False)
+
+        current_year = datetime.now().year
+
+        rows = []
+        for ein, row in all_charities.iterrows():
+            charity_df = self.df[self.df['Tax ID'] == ein]
+
+            # Get years donated (as 2-digit strings, sorted)
+            years = sorted(set(charity_df['Year'].astype(int)))
+            years_str = ', '.join(str(y)[-2:] for y in years)
+
+            # Get 2025 donation amount
+            amount_2025 = charity_df[charity_df['Year'] == current_year]['Amount_Numeric'].sum()
+
+            # Check if in CSV or Rule
+            in_csv = "✓" if ein in csv_eins else ""
+            in_rule = "✓" if ein in rule_eins else ""
+
+            rows.append({
+                'EIN': ein,
+                'Organization': row['Organization'],
+                'Total': row['Amount_Numeric'],
+                'CSV': in_csv,
+                'Rule': in_rule,
+                'Years': years_str,
+                f'{current_year}': amount_2025,
+                'Count': len(charity_df)
+            })
+
+        # Create DataFrame
+        result_df = pd.DataFrame(rows)
+        result_df = result_df.set_index('EIN')
+
+        # Already sorted by total (from all_charities)
+        # Limit if specified
+        if max_shown is not None and len(result_df) > max_shown:
+            result_df = result_df.head(max_shown)
+
+        return result_df

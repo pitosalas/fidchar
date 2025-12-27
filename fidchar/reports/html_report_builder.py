@@ -104,8 +104,8 @@ def generate_html_header_section(total_donations, total_amount, years_covered,
 class HTMLReportBuilder(brb.BaseReportBuilder):
     """HTML report builder with inherited state - BOOTSTRAP VERSION"""
 
-    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None):
-        super().__init__(df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set)
+    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None, pattern_based_ein_set=None):
+        super().__init__(df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set, pattern_based_ein_set)
         self.table_renderer = HTMLSectionRenderer()
         self.card_renderer = HTMLCardRenderer()
 
@@ -313,6 +313,118 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         {table_html}
         <p class="fw-bold mt-4">
             Total donated to CSV-based recurring charities: ${total_amount:,.2f}
+        </p>
+    </div>"""
+
+    def generate_combined_recurring_section_html(self, combined_df, max_shown):
+        """Generate combined recurring charities section as HTML.
+
+        Combines both rule-based and CSV-based recurring charities with a Source column.
+        """
+        if combined_df is None or combined_df.empty:
+            return """
+    <div class="report-section">
+        <h2 class="section-title">Recurring Charities</h2>
+        <p>No recurring charities found.</p>
+    </div>"""
+
+        display_df = combined_df.head(max_shown)
+        total_amount = combined_df['Total'].sum()
+        total_count = len(combined_df)
+
+        df_data = []
+        for ein, row in display_df.iterrows():
+            charity_info = self.format_charity_info(ein, row['Organization'], row['Total'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total': f"${row['Total']:,.2f}",
+                'Donations': int(row['Count']),
+                'Years': row['Years'],
+                'Source': row['Source']
+            })
+
+        table_df = pd.DataFrame(df_data)
+        table = ReportTable.from_dataframe(table_df, title=None)
+        table_html = self.table_renderer.render(table)
+
+        # Count by source
+        source_counts = combined_df['Source'].value_counts().to_dict()
+        both_count = source_counts.get('both', 0)
+        rule_only = source_counts.get('rule', 0)
+        csv_only = source_counts.get('csv', 0)
+
+        # Count stopped charities
+        stopped_count = sum(1 for s in source_counts.keys() if 'stopped' in s)
+        active_count = total_count - stopped_count
+
+        breakdown = f"{both_count} in both, {rule_only} rule-based only, {csv_only} CSV-based only"
+        if stopped_count > 0:
+            breakdown += f", {stopped_count} stopped"
+
+        return f"""
+    <div class="report-section">
+        <h2 class="section-title">Recurring Charities</h2>
+        <p>Combines charities from rule-based detection (≥5 years, ≥$1,000/year), CSV field (Fidelity's recurring marker), and stopped recurring donations</p>
+        <p>{total_count} total charities (showing top {len(display_df)}): {active_count} active ({breakdown})</p>
+        {table_html}
+        <p class="fw-bold mt-4">
+            Total donated to all listed charities: ${total_amount:,.2f}
+        </p>
+    </div>"""
+
+    def generate_all_charities_section_html(self, all_charities_df, max_shown):
+        """Generate comprehensive all charities list as HTML.
+
+        Shows all charities with CSV/Rule indicators, years donated, current year amount, etc.
+        """
+        if all_charities_df is None or all_charities_df.empty:
+            return """
+    <div class="report-section">
+        <h2 class="section-title">All Charities</h2>
+        <p>No charities found.</p>
+    </div>"""
+
+        display_df = all_charities_df if max_shown is None else all_charities_df.head(max_shown)
+        total_charities = len(all_charities_df)
+        total_amount = all_charities_df['Total'].sum()
+
+        # Get current year from column name
+        current_year_col = [col for col in all_charities_df.columns if col.isdigit()][0]
+
+        df_data = []
+        for ein, row in display_df.iterrows():
+            charity_info = self.format_charity_info(ein, row['Organization'], row['Total'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total': f"${row['Total']:,.0f}",
+                'CSV': row['CSV'],
+                'Rule': row['Rule'],
+                'Years': row['Years'],
+                current_year_col: f"${row[current_year_col]:,.0f}" if row[current_year_col] > 0 else "",
+                'Count': int(row['Count'])
+            })
+
+        table_df = pd.DataFrame(df_data)
+        table = ReportTable.from_dataframe(table_df, title=None)
+        table_html = self.table_renderer.render(table)
+
+        # Count CSV and Rule charities
+        csv_count = (all_charities_df['CSV'] == '✓').sum()
+        rule_count = (all_charities_df['Rule'] == '✓').sum()
+        both_count = ((all_charities_df['CSV'] == '✓') & (all_charities_df['Rule'] == '✓')).sum()
+
+        showing_text = f"showing all {total_charities}" if max_shown is None else f"showing top {len(display_df)} of {total_charities}"
+
+        return f"""
+    <div class="report-section">
+        <h2 class="section-title">All Charities</h2>
+        <p>Complete list of all charities ordered by total donation amount ({showing_text})</p>
+        <p>{csv_count} in CSV recurring, {rule_count} meet rule-based criteria, {both_count} in both</p>
+        {table_html}
+        <p class="fw-bold mt-4">
+            Total donated to all charities: ${total_amount:,.2f}
         </p>
     </div>"""
 
@@ -859,6 +971,13 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
                 csv_recurring_df = an.get_csv_recurring_details(builder.df)
                 csv_html = builder.generate_csv_recurring_section_html(csv_recurring_df, max_shown)
                 html_content += csv_html.replace('class="report-section"', 'class="report-section section-csv-recurring"', 1)
+        elif section_id == "combined_recurring":
+            if builder:
+                max_shown = section_options.get("max_shown", 100)
+                csv_recurring_df = an.get_csv_recurring_details(builder.df)
+                combined_df = builder.prepare_combined_recurring_data(csv_recurring_df, max_shown)
+                combined_html = builder.generate_combined_recurring_section_html(combined_df, max_shown)
+                html_content += combined_html.replace('class="report-section"', 'class="report-section section-combined-recurring"', 1)
         elif section_id == "remaining":
             if builder:
                 # Get configurable limit from section options
@@ -866,6 +985,13 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
                 data = builder.prepare_remaining_charities_data(one_time, top_charities, max_shown=max_remaining)
                 remaining_html = builder.generate_remaining_charities_section_html(data)
                 html_content += remaining_html.replace('class="report-section"', 'class="report-section section-remaining"', 1)
+        elif section_id == "all_charities":
+            if builder:
+                max_shown = section_options.get("max_shown", None)  # None = show all
+                csv_recurring_df = an.get_csv_recurring_details(builder.df)
+                all_charities_df = builder.prepare_all_charities_data(csv_recurring_df, max_shown)
+                all_charities_html = builder.generate_all_charities_section_html(all_charities_df, max_shown)
+                html_content += all_charities_html.replace('class="report-section"', 'class="report-section section-all-charities"', 1)
 
     return html_content
 

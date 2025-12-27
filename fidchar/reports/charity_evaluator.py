@@ -21,11 +21,15 @@ def get_charity_evaluations(top_charities, charapi_config_path, donation_df, rec
                          If None, uses defaults: count=15, min_years=5, min_amount=1000
         one_time: DataFrame of one-time donations (indexed by Tax ID)
         stopped_recurring: DataFrame of stopped recurring donations (indexed by Tax ID)
+
+    Returns:
+        tuple: (evaluations_dict, recurring_ein_set, pattern_based_ein_set)
     """
     if not charapi_config_path:
-        return {}, set()
+        return {}, set(), set()
 
     recurring_charities = set()
+    pattern_recurring = set()
 
     pattern_config = recurring_config.get("pattern_based", {})
     if pattern_config.get("enabled", False):
@@ -79,4 +83,4 @@ def get_charity_evaluations(top_charities, charapi_config_path, donation_df, rec
                 print(f"  {line.strip()}")
                 break
 
-    return evaluations, recurring_charities
+    return evaluations, recurring_charities, pattern_recurring
