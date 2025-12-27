@@ -70,7 +70,7 @@ def get_charity_details(df, top_charities):
     return charity_details
 
 
-def determine_recurring_charities(df, count, min_years, min_amount):
+def get_recurring_by_pattern(df, count, min_years, min_amount):
     """Determine recurring charities based on YOUR donation patterns.
 
     A charity is a "recurring" charity if:
@@ -85,7 +85,6 @@ def determine_recurring_charities(df, count, min_years, min_amount):
     if 'Year' not in work.columns:
         work['Year'] = work['Submit Date'].dt.year
 
-    # Only look at recent years
     recent_years = list(range(current_year - count, current_year + 1))
     work = work[work['Year'].isin(recent_years)]
 
@@ -94,7 +93,6 @@ def determine_recurring_charities(df, count, min_years, min_amount):
     for tax_id in work['Tax ID'].dropna().unique():
         charity_data = work[work['Tax ID'] == tax_id]
 
-        # Check if donated in previous year
         prev_year_donations = charity_data[charity_data['Year'] == previous_year]
         if prev_year_donations.empty:
             continue
@@ -103,7 +101,6 @@ def determine_recurring_charities(df, count, min_years, min_amount):
         if prev_year_total < min_amount:
             continue
 
-        # Count qualifying years in the recent period
         yearly_totals = charity_data.groupby('Year')['Amount_Numeric'].sum()
         qualifying_years = sum(1 for amount in yearly_totals if amount >= min_amount)
 
@@ -111,3 +108,41 @@ def determine_recurring_charities(df, count, min_years, min_amount):
             recurring_charities.add(tax_id)
 
     return recurring_charities
+
+
+def get_recurring_by_csv_field(df):
+    """Determine recurring charities based on CSV Recurring field.
+
+    Returns set of Tax IDs marked as recurring by Fidelity.
+    """
+    if 'Recurring' not in df.columns:
+        return set()
+
+    recurring_mask = df['Recurring'].notna() & (df['Recurring'].str.len() > 0)
+    recurring_tax_ids = set(df[recurring_mask]['Tax ID'].dropna().unique())
+
+    return recurring_tax_ids
+
+
+def get_csv_recurring_details(df):
+    """Get detailed information for CSV-based recurring charities.
+
+    Returns DataFrame with: Organization, Total, Count, Years
+    """
+    if 'Recurring' not in df.columns:
+        return None
+
+    recurring_mask = df['Recurring'].notna() & (df['Recurring'].str.len() > 0)
+    recurring_df = df[recurring_mask].copy()
+
+    details = recurring_df.groupby('Tax ID').agg({
+        'Organization': 'first',
+        'Amount_Numeric': 'sum',
+        'Submit Date': 'count',
+        'Year': lambda x: ', '.join(sorted(set(str(y)[-2:] for y in x)))
+    }).round(2)
+
+    details.columns = ['Organization', 'Total', 'Count', 'Years']
+    details = details.sort_values('Total', ascending=False)
+
+    return details

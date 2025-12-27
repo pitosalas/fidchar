@@ -20,9 +20,8 @@ def parse_amount(amount_str):
 
 def read_donation_data(file_path):
     """Read and parse the CSV donation data"""
-    # Read the CSV file starting from the actual data (no need to skip rows)
     try:
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path, skiprows=8)
     except FileNotFoundError:
         raise FileNotFoundError(f"data.csv file not found at {file_path}")
 

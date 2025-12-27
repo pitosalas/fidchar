@@ -25,16 +25,26 @@ def get_charity_evaluations(top_charities, charapi_config_path, donation_df, rec
     if not charapi_config_path:
         return {}, set()
 
-    if recurring_config.get("enabled", True):
-        recurring_charities = an.determine_recurring_charities(
+    recurring_charities = set()
+
+    pattern_config = recurring_config.get("pattern_based", {})
+    if pattern_config.get("enabled", False):
+        pattern_recurring = an.get_recurring_by_pattern(
             donation_df,
-            recurring_config.get("count", 15),
-            recurring_config.get("min_years", 5),
-            recurring_config.get("min_amount", 1000)
+            pattern_config.get("count", 15),
+            pattern_config.get("min_years", 5),
+            pattern_config.get("min_amount", 1000)
         )
-        print(f"Identified {len(recurring_charities)} recurring charities")
-    else:
-        recurring_charities = set()
+        print(f"Identified {len(pattern_recurring)} pattern-based recurring charities")
+        recurring_charities |= pattern_recurring
+
+    csv_config = recurring_config.get("csv_field_based", {})
+    if csv_config.get("enabled", True):
+        csv_recurring = an.get_recurring_by_csv_field(donation_df)
+        print(f"Identified {len(csv_recurring)} CSV field-based recurring charities")
+        recurring_charities |= csv_recurring
+
+    print(f"Total recurring charities (combined): {len(recurring_charities)}")
 
     evaluations = {}
 

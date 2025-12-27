@@ -40,6 +40,11 @@ sections:
     options:
       max_recurring_shown: 100
 
+  - name: csv_recurring
+    # CSV-based recurring charities from Fidelity's Recurring field
+    options:
+      max_shown: 100
+
   - name: remaining
     # Remaining Charities - multi-year, multi-donation but not recurring
     options:
@@ -66,13 +71,18 @@ output_dir: "output"
 # Charapi configuration path (for charity evaluations)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 
-# Recurring charity determination (based on YOUR donation patterns)
-# A charity is "recurring" if you donated to them regularly in recent years
+# Recurring charity determination - two methods available
 recurring_charity:
-  enabled: true
-  count: 15           # Look at last 15 years
-  min_years: 5        # Must have donated in at least 5 of those years
-  min_amount: 1000    # Each qualifying year must have >= $1000 in donations
+  # Pattern-based: Analyze YOUR donation history over multiple years
+  pattern_based:
+    enabled: true
+    count: 15           # Look at last 15 years
+    min_years: 5        # Must have donated in at least 5 of those years
+    min_amount: 1000    # Each qualifying year must have >= $1000 in donations
+
+  # CSV field-based: Use Fidelity's "Recurring" designation from the CSV
+  csv_field_based:
+    enabled: true
 
 # For consideration criteria (charities to include in detailed analysis even if not in top N)
 # These charities meet quality thresholds and warrant consideration

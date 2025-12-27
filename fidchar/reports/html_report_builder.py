@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime
 from typing import List
 from fidchar.reports import base_report_builder as brb
+from fidchar.core import analysis as an
 from fidchar.report_generator.models import ReportTable, ReportCard, CardSection
 from fidchar.report_generator.renderers import HTMLSectionRenderer, HTMLCardRenderer
 import shutil
@@ -274,6 +275,44 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         </div>
         <p class="fw-bold mt-4">
             Total donated to recurring charities: ${data['total']:,.2f}
+        </p>
+    </div>"""
+
+    def generate_csv_recurring_section_html(self, csv_recurring_df, max_shown):
+        """Generate CSV-based recurring charities section as HTML"""
+        if csv_recurring_df is None or csv_recurring_df.empty:
+            return """
+    <div class="report-section">
+        <h2 class="section-title">CSV-Based Recurring Charities</h2>
+        <p>No CSV-based recurring charities found.</p>
+    </div>"""
+
+        display_df = csv_recurring_df.head(max_shown)
+        total_amount = csv_recurring_df['Total'].sum()
+
+        df_data = []
+        for ein, row in display_df.iterrows():
+            charity_info = self.format_charity_info(ein, row['Organization'], row['Total'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total': f"${row['Total']:,.2f}",
+                'Donations': int(row['Count']),
+                'Years': row['Years']
+            })
+
+        table_df = pd.DataFrame(df_data)
+        table = ReportTable.from_dataframe(table_df, title=None)
+        table_html = self.table_renderer.render(table)
+
+        return f"""
+    <div class="report-section">
+        <h2 class="section-title">CSV-Based Recurring Charities</h2>
+        <p>Charities marked as recurring in Fidelity's export (from "Recurring" field)</p>
+        <p>{len(csv_recurring_df)} total recurring charities (showing top {len(display_df)})</p>
+        {table_html}
+        <p class="fw-bold mt-4">
+            Total donated to CSV-based recurring charities: ${total_amount:,.2f}
         </p>
     </div>"""
 
@@ -810,11 +849,16 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
     </div>"""
         elif section_id == "recurring_summary":
             if builder:
-                # Get configurable limit from section options
                 max_recurring = section_options.get("max_recurring_shown", 20)
                 data = builder.prepare_recurring_summary_data(max_shown=max_recurring)
                 summary_html = builder.generate_recurring_summary_section_html(data)
                 html_content += summary_html.replace('class="report-section"', 'class="report-section section-recurring-summary"', 1)
+        elif section_id == "csv_recurring":
+            if builder:
+                max_shown = section_options.get("max_shown", 100)
+                csv_recurring_df = an.get_csv_recurring_details(builder.df)
+                csv_html = builder.generate_csv_recurring_section_html(csv_recurring_df, max_shown)
+                html_content += csv_html.replace('class="report-section"', 'class="report-section section-csv-recurring"', 1)
         elif section_id == "remaining":
             if builder:
                 # Get configurable limit from section options
