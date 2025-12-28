@@ -13,6 +13,9 @@ output/
 # macOS files
 .DS_Store
 
+# Secrets and API keys
+.env
+
 data.csv
 uv.lock
 .environments
