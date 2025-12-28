@@ -15,6 +15,7 @@ output/
 
 # Secrets and API keys
 .env
+cache/
 
 data.csv
 uv.lock
