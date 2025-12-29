@@ -397,6 +397,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             charity_info = self.format_charity_info(ein, row['Organization'], row['Total'])
 
             df_data.append({
+                'EIN': ein,
                 'Organization': charity_info['html_org'],
                 'Total': f"${row['Total']:,.0f}",
                 'CSV': row['CSV'],
