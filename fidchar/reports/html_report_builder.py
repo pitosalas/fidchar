@@ -515,7 +515,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 section_type="key_value",
                 content={
                     "Tax ID": tax_id,
-                    "Tags": tags,
+                    "Mission": tags,
                     "Service Area": service_area,
                     "Donations": f"${total_donated:,.0f} ({donation_count}x)"
                 }
