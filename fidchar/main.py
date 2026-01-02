@@ -83,18 +83,22 @@ def main():
             all_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
         )
 
-        # Now filter to top N by amount + those meeting for_consideration criteria
-        top_by_amount = set(all_charities.head(top_n).index)
+        # Filter by minimum grant amount
+        min_grant = config.get("top_charities_min_grant", 1000)
+        filtered_charities = all_charities[all_charities["Amount_Numeric"] >= min_grant]
 
-        # Add charities meeting for_consideration criteria
-        # Use BaseReportBuilder's for_consideration method to avoid duplicating logic
-        temp_builder = brb.BaseReportBuilder(df, config, {}, {}, char_evals, set(), set())
-        for ein in all_charities.index:
-            if ein not in top_by_amount and temp_builder.for_consideration(ein):
-                top_by_amount.add(ein)
+        # Get top N from filtered list
+        top_charities = filtered_charities.head(top_n)
 
-        # Filter all_charities to only include selected EINs, then sort alphabetically
-        top_charities = all_charities.loc[list(top_by_amount)].sort_values("Organization")
+        # Sort based on configuration
+        sort_order = config.get("top_charities_sort", "alpha")
+        if sort_order == "alpha":
+            top_charities = top_charities.sort_values("Organization")
+        elif sort_order == "total_grant":
+            top_charities = top_charities.sort_values("Amount_Numeric", ascending=False)
+        else:
+            # Default to alphabetical if invalid sort order
+            top_charities = top_charities.sort_values("Organization")
 
         # Get detailed info for the filtered charities
         char_details = an.get_charity_details(df, top_charities)

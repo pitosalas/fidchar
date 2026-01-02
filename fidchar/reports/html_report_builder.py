@@ -485,7 +485,6 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             description = "No description available"
 
         org_name = org_donations["Organization"].iloc[0] if not org_donations.empty else "Unknown"
-        sector = org_donations["Charitable Sector"].iloc[0] if not org_donations.empty else "Unknown"
         total_donated = org_donations["Amount_Numeric"].sum()
         donation_count = len(org_donations)
 
@@ -493,26 +492,59 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         charity_info = self.format_charity_info(tax_id, org_name, total_donated)
         org_name_with_badges = charity_info['html_org']
 
+        # Get tags and service areas from evaluation data
+        tags = "Not specified"
+        service_area = "Not specified"
+        if evaluation and hasattr(evaluation, 'data_field_values'):
+            tags_data = evaluation.data_field_values.get('tags', [])
+            if tags_data:
+                if isinstance(tags_data, list):
+                    tags = ", ".join(tags_data)
+                else:
+                    tags = str(tags_data)
+
+            service_areas_data = evaluation.data_field_values.get('service_areas', [])
+            if service_areas_data:
+                if isinstance(service_areas_data, list):
+                    service_area = ", ".join(service_areas_data)
+                else:
+                    service_area = str(service_areas_data)
+
         sections = [
             CardSection(
                 section_type="key_value",
                 content={
                     "Tax ID": tax_id,
-                    "Sector": sector,
+                    "Tags": tags,
+                    "Service Area": service_area,
                     "Donations": f"${total_donated:,.0f} ({donation_count}x)"
                 }
             )
         ]
 
         if evaluation:
-            sections.append(CardSection(
-                section_type="list",
-                title="Charity Evaluation:",
-                content=[
+            # Calculate overall evaluation score (percentage of acceptable or better)
+            total_metrics = evaluation.total_metrics
+            if total_metrics > 0:
+                acceptable_or_better = evaluation.outstanding_count + evaluation.acceptable_count
+                eval_score = int((acceptable_or_better / total_metrics) * 100)
+                eval_content = [
+                    f"<strong>Overall: {eval_score}% ({acceptable_or_better}/{total_metrics})</strong>",
                     f"⭐ Outstanding: {evaluation.outstanding_count} metrics",
                     f"✓ Acceptable: {evaluation.acceptable_count} metrics",
                     f"⚠ Unacceptable: {evaluation.unacceptable_count} metrics"
                 ]
+            else:
+                eval_content = [
+                    f"⭐ Outstanding: {evaluation.outstanding_count} metrics",
+                    f"✓ Acceptable: {evaluation.acceptable_count} metrics",
+                    f"⚠ Unacceptable: {evaluation.unacceptable_count} metrics"
+                ]
+
+            sections.append(CardSection(
+                section_type="list",
+                title="Charity Evaluation:",
+                content=eval_content
             ))
 
             if evaluation.alignment_score is not None and evaluation.alignment_score > 0:

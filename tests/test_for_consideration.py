@@ -24,6 +24,7 @@ class MockEvaluation:
         self.total_metrics = outstanding + acceptable + unacceptable
         self.organization_name = "Test Charity"
         self.summary = "Test summary"
+        self.data_field_values = {}  # Add empty dict for data field values
 
 
 class TestForConsideration:
@@ -205,11 +206,10 @@ class TestForConsiderationBadge:
         assert 'CONSDR' in result['html_org']
 
     def test_badge_has_correct_styling(self):
-        """Should use white background with black border for CONSDR badge"""
+        """Should use charity-badge CSS class for CONSDR badge"""
         result = self.builder.format_charity_info('12-3456789', 'Test Charity')
-        assert 'background:#fff' in result['html_org']  # White background
-        assert 'color:#000' in result['html_org']  # Black text
-        assert 'border:1px solid #000' in result['html_org']  # Black border
+        assert 'class="charity-badge"' in result['html_org']  # Uses charity-badge CSS class
+        assert 'CONSDR' in result['html_org']  # Badge text present
 
     def test_badge_not_shown_when_criteria_not_met(self):
         """Should not show badge when criteria not met"""

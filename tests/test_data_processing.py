@@ -55,7 +55,15 @@ class TestReadDonationData:
             read_donation_data("nonexistent_file.csv")
 
     def test_converts_amounts_to_numeric(self):
-        csv_data = """Submit Date,Amount,Tax ID
+        csv_data = """GRANT HISTORY
+
+Giving Account,Test Fund
+
+Timeframe:,Since inception
+
+As of:,12/28/2025 7:38 PM ET
+
+Submit Date,Amount,Tax ID
 01/15/2024,"$1,000.00",11-1111111
 02/20/2024,$500.50,22-2222222"""
 
@@ -73,7 +81,15 @@ class TestReadDonationData:
             os.unlink(temp_path)
 
     def test_converts_dates_to_datetime(self):
-        csv_data = """Submit Date,Amount,Tax ID
+        csv_data = """GRANT HISTORY
+
+Giving Account,Test Fund
+
+Timeframe:,Since inception
+
+As of:,12/28/2025 7:38 PM ET
+
+Submit Date,Amount,Tax ID
 01/15/2024,$100.00,11-1111111"""
 
         import tempfile
@@ -88,7 +104,15 @@ class TestReadDonationData:
             os.unlink(temp_path)
 
     def test_extracts_year_from_date(self):
-        csv_data = """Submit Date,Amount,Tax ID
+        csv_data = """GRANT HISTORY
+
+Giving Account,Test Fund
+
+Timeframe:,Since inception
+
+As of:,12/28/2025 7:38 PM ET
+
+Submit Date,Amount,Tax ID
 01/15/2024,$100.00,11-1111111
 03/20/2025,$200.00,22-2222222"""
 
@@ -106,7 +130,15 @@ class TestReadDonationData:
             os.unlink(temp_path)
 
     def test_strips_column_names(self):
-        csv_data = """  Submit Date  ,  Amount  ,  Tax ID
+        csv_data = """GRANT HISTORY
+
+Giving Account,Test Fund
+
+Timeframe:,Since inception
+
+As of:,12/28/2025 7:38 PM ET
+
+  Submit Date  ,  Amount  ,  Tax ID
 01/15/2024,$100.00,11-1111111"""
 
         import tempfile
@@ -123,7 +155,15 @@ class TestReadDonationData:
             os.unlink(temp_path)
 
     def test_preserves_original_amount_column(self):
-        csv_data = """Submit Date,Amount,Tax ID
+        csv_data = """GRANT HISTORY
+
+Giving Account,Test Fund
+
+Timeframe:,Since inception
+
+As of:,12/28/2025 7:38 PM ET
+
+Submit Date,Amount,Tax ID
 01/15/2024,"$1,000.00",11-1111111"""
 
         import tempfile

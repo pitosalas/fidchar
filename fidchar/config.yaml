@@ -76,6 +76,8 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 
 # Top charities configuration
 top_charities_count: 25  # Number of top charities to include in detailed analysis
+top_charities_sort: "alpha"  # Sort order: "alpha" (alphabetical) or "total_grant" (by donation amount)
+top_charities_min_grant: 1000  # Minimum total donation amount to be included in top charities
 
 # Recurring charity determination - two methods available
 recurring_charity:
@@ -83,7 +85,7 @@ recurring_charity:
   pattern_based:
     enabled: true
     count: 15           # Look at last 15 years
-    min_years: 5        # Must have donated in at least 5 of those years
+    min_years: 8        # Must have donated in at least 5 of those years
     min_amount: 1000    # Each qualifying year must have >= $1000 in donations
 
   # CSV field-based: Use Fidelity's "Recurring" designation from the CSV
@@ -93,6 +95,6 @@ recurring_charity:
 # For consideration criteria (charities to include in detailed analysis even if not in top N)
 # These charities meet quality thresholds and warrant consideration
 for_consideration:
-  enabled: true
+  enabled: false  # DISABLED - using min_grant filter instead
   min_alignment_score: 70        # Minimum alignment score (0-100)
   min_evaluation_score: 70       # Minimum evaluation score (0-100, based on outstanding/acceptable metrics)
