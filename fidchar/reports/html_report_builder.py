@@ -373,15 +373,20 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         </p>
     </div>"""
 
-    def generate_all_charities_section_html(self, all_charities_df, max_shown):
+    def generate_all_charities_section_html(self, all_charities_df, max_shown, title="All Charities"):
         """Generate comprehensive all charities list as HTML.
 
         Shows all charities with CSV/Rule indicators, years donated, current year amount, etc.
+
+        Args:
+            all_charities_df: DataFrame with charity data
+            max_shown: Maximum number to display
+            title: Section title (default: "All Charities")
         """
         if all_charities_df is None or all_charities_df.empty:
-            return """
+            return f"""
     <div class="report-section">
-        <h2 class="section-title">All Charities</h2>
+        <h2 class="section-title">{title}</h2>
         <p>No charities found.</p>
     </div>"""
 
@@ -420,8 +425,8 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         return f"""
     <div class="report-section">
-        <h2 class="section-title">All Charities</h2>
-        <p>Complete list of all charities ordered by total donation amount ({showing_text})</p>
+        <h2 class="section-title">{title}</h2>
+        <p>Charities ordered by total donation amount ({showing_text})</p>
         <p>{csv_count} in CSV recurring, {rule_count} meet rule-based criteria, {both_count} in both</p>
         {table_html}
         <p class="fw-bold mt-4">
@@ -1025,6 +1030,30 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
                 all_charities_df = builder.prepare_all_charities_data(csv_recurring_df, max_shown)
                 all_charities_html = builder.generate_all_charities_section_html(all_charities_df, max_shown)
                 html_content += all_charities_html.replace('class="report-section"', 'class="report-section section-all-charities"', 1)
+        elif section_id == "high_alignment_opportunities":
+            if builder:
+                max_shown = section_options.get("max_shown", None)  # None = show all
+                min_alignment = section_options.get("min_alignment_score", 80)
+                csv_recurring_df = an.get_csv_recurring_details(builder.df)
+
+                # Filter: alignment >= min_alignment AND NOT in rule-based recurring
+                def filter_high_alignment_non_recurring(ein, in_csv, in_rule, evaluation):
+                    # Must NOT be rule-based recurring
+                    if in_rule:
+                        return False
+                    # Must have evaluation with alignment score >= threshold
+                    if evaluation and hasattr(evaluation, 'alignment_score'):
+                        return evaluation.alignment_score >= min_alignment
+                    return False
+
+                opportunities_df = builder.prepare_all_charities_data(
+                    csv_recurring_df, max_shown, filter_func=filter_high_alignment_non_recurring
+                )
+                opportunities_html = builder.generate_all_charities_section_html(
+                    opportunities_df, max_shown,
+                    title=f"High Alignment Opportunities (≥{min_alignment}% alignment, not recurring)"
+                )
+                html_content += opportunities_html.replace('class="report-section"', 'class="report-section section-high-alignment"', 1)
 
     return html_content
 

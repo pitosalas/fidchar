@@ -529,7 +529,7 @@ class BaseReportBuilder:
 
         return result_df
 
-    def prepare_all_charities_data(self, csv_recurring_df, max_shown=None):
+    def prepare_all_charities_data(self, csv_recurring_df, max_shown=None, filter_func=None):
         """Prepare comprehensive list of all charities with detailed columns.
 
         Columns:
@@ -544,6 +544,8 @@ class BaseReportBuilder:
         Args:
             csv_recurring_df: DataFrame with CSV-based recurring charities
             max_shown: Maximum number to show (default: None = show all)
+            filter_func: Optional function(ein, in_csv, in_rule, evaluation) -> bool
+                        to filter which charities to include
 
         Returns:
             DataFrame with all charities sorted by total donation amount
@@ -577,15 +579,22 @@ class BaseReportBuilder:
             amount_2025 = charity_df[charity_df['Year'] == current_year]['Amount_Numeric'].sum()
 
             # Check if in CSV or Rule
-            in_csv = "✓" if ein in csv_eins else ""
-            in_rule = "✓" if ein in rule_eins else ""
+            in_csv = ein in csv_eins
+            in_rule = ein in rule_eins
+
+            # Get evaluation for this charity
+            evaluation = self.charity_evaluations.get(ein)
+
+            # Apply filter if provided
+            if filter_func and not filter_func(ein, in_csv, in_rule, evaluation):
+                continue
 
             rows.append({
                 'EIN': ein,
                 'Organization': row['Organization'],
                 'Total': row['Amount_Numeric'],
-                'CSV': in_csv,
-                'Rule': in_rule,
+                'CSV': "✓" if in_csv else "",
+                'Rule': "✓" if in_rule else "",
                 'Years': years_str,
                 f'{current_year}': amount_2025,
                 'Count': len(charity_df)

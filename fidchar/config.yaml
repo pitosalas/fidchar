@@ -13,6 +13,7 @@ input_file: "data.csv"
 # - recurring_summary: Recurring Charities Summary (rule-based only, EIN, name, total donated, last donation date)
 # - csv_recurring: CSV-Based Recurring Charities (Fidelity's recurring field only)
 # - all_charities: All Charities (comprehensive list with CSV/Rule indicators, years, current year amount)
+# - high_alignment_opportunities: High-alignment charities that aren't recurring (potential recurring candidates)
 # - remaining: Remaining Charities (multi-year, multi-donation but not recurring)
 # - patterns: One-Time vs Recurring Donation Patterns
 # - detailed: Detailed Analysis of Top N Charities
@@ -47,6 +48,12 @@ sections:
     # All Charities - comprehensive list with CSV/Rule indicators, years, current year amount
     # options:
       # max_shown: 200  # Omit to show all charities
+
+  - name: high_alignment_opportunities
+    # High-alignment charities that aren't recurring - potential recurring donation candidates
+    options:
+      min_alignment_score: 80  # Minimum alignment score (default: 80)
+      # max_shown: 50  # Omit to show all
 
   # - name: remaining
   #   # Remaining Charities - multi-year, multi-donation but not recurring

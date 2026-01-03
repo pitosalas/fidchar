@@ -1,6 +1,6 @@
 # Charitable Donation Analysis System - Current State
 
-*Last Updated: December 27, 2024*
+*Last Updated: January 2, 2026*
 
 ## 🚨 URGENT: Known Issues Requiring Attention
 
@@ -324,6 +324,7 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - `recurring_summary`: Recurring Charities Summary (rule-based only)
 - `csv_recurring`: CSV-Based Recurring Charities (Fidelity's recurring field only)
 - `all_charities`: All Charities (comprehensive list with CSV/Rule indicators)
+- `high_alignment_opportunities`: **NEW** - High-alignment charities not recurring (potential recurring candidates)
 - `remaining`: Remaining Charities (multi-year, multi-donation but not recurring)
 - `patterns`: One-Time vs Recurring Donation Patterns
 - `detailed`: Detailed Analysis of Top N Charities
@@ -346,6 +347,57 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - Browser with Print to PDF capability
 
 ## Recent Development History
+
+### January 2, 2026 - High Alignment Opportunities Report & Code Refactoring
+
+**Changes**:
+1. **New "High Alignment Opportunities" Report Section**
+   - Shows charities with alignment score ≥80% that are NOT rule-based recurring
+   - Identifies high-quality charities that could become recurring donations
+   - Configurable minimum alignment score (default: 80)
+   - Reuses all_charities infrastructure with filter_func parameter
+   - Found 35 candidates in current dataset
+   - Example: ACLU Foundation of MA ($30K, 80% alignment, 6 donations)
+
+2. **Refactored All Charities Report for Reusability**
+   - Added `filter_func` parameter to `prepare_all_charities_data()`
+   - Function signature: `filter_func(ein, in_csv, in_rule, evaluation) -> bool`
+   - Enables filtering by any criteria (alignment score, evaluation metrics, etc.)
+   - Eliminated need for duplicate report code
+   - Same HTML renderer works for both all_charities and high_alignment_opportunities
+
+3. **Enhanced Charity Detail Cards**
+   - Added **Mission** (was "Tags"), **Service Area**, and **Donations** to main info box
+   - Removed "Sector" (less useful than specific mission tags)
+   - Added **Overall evaluation score** to Charity Evaluation section
+   - Format: "Overall: 62% (10/16)" showing ratio of acceptable/outstanding metrics
+   - Tags and service areas pulled from charapi evaluation data
+
+4. **Test Suite Fixes** (All 32 tests now passing)
+   - Fixed 5 data processing tests (added 8-line CSV header to test data)
+   - Fixed 5 for_consideration badge tests (added data_field_values attribute)
+   - Updated MockEvaluation to match real evaluation structure
+   - Badge styling test now checks for CSS class instead of inline styles
+
+5. **Label Improvements**
+   - Changed "Tags:" to "Mission:" in charity detail cards
+   - More intuitive for end users (shows "Mission: civil_rights" vs "Tags: civil_rights")
+
+**Files Modified**:
+- `fidchar/reports/base_report_builder.py`: Added filter_func parameter to prepare_all_charities_data()
+- `fidchar/reports/html_report_builder.py`: Added high_alignment_opportunities section, enhanced card generation
+- `fidchar/config.yaml`: Added high_alignment_opportunities section with min_alignment_score option
+- `tests/test_data_processing.py`: Fixed all CSV header tests
+- `tests/test_for_consideration.py`: Fixed MockEvaluation and styling tests
+
+**Configuration**:
+```yaml
+sections:
+  - name: high_alignment_opportunities
+    options:
+      min_alignment_score: 80  # Minimum alignment score (default: 80)
+      # max_shown: 50  # Omit to show all
+```
 
 ### December 27, 2024 - Bug Fix and Configuration Enhancement
 
