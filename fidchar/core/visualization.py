@@ -67,12 +67,19 @@ def create_yearly_histograms(yearly_amounts, yearly_counts, output_dir):
     plt.close()
 
 
-def create_charity_yearly_graphs(top_charities, charity_details, output_dir):
+def create_charity_yearly_graphs(charities, charity_details, output_dir):
+    """Create yearly donation graphs for charities
+
+    Args:
+        charities: DataFrame of charities to create graphs for
+        charity_details: Dict of detailed donation data per charity
+        output_dir: Directory to save graph images
+    """
     created_graphs = {}
     images_dir = os.path.join(output_dir, "images")
     os.makedirs(images_dir, exist_ok=True)
 
-    for i, (tax_id, charity_data) in enumerate(top_charities.iterrows(), 1):
+    for i, (tax_id, charity_data) in enumerate(charities.iterrows(), 1):
         donations = charity_details[tax_id].copy()
 
         # Group by year and sum donations

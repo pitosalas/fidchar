@@ -46,21 +46,29 @@ def analyze_donation_patterns(df):
     return one_time, stopped_recurring
 
 
-def get_top_charities_basic(df, top_n=10):
-    """Get top charities by total donations, grouped by Tax ID"""
-    top_charities = df.groupby("Tax ID").agg({
+def get_charities_basic(df, max_count=None):
+    """Get charities by total donations, grouped by Tax ID
+
+    Args:
+        df: DataFrame with donation data
+        max_count: Optional maximum number of charities to return (None = all)
+    """
+    charities = df.groupby("Tax ID").agg({
         "Amount_Numeric": "sum",
         "Organization": "first"  # Keep one organization name for display
-    }).sort_values("Amount_Numeric", ascending=False).head(top_n)
+    }).sort_values("Amount_Numeric", ascending=False)
 
-    return top_charities
+    if max_count:
+        charities = charities.head(max_count)
+
+    return charities
 
 
-def get_charity_details(df, top_charities):
-    """Get detailed donation history for each top charity"""
+def get_charity_details(df, charities):
+    """Get detailed donation history for each charity"""
     charity_details = {}
 
-    for tax_id in top_charities.index:
+    for tax_id in charities.index:
         # Get all donations for this Tax ID
         charity_data = df[df["Tax ID"] == tax_id][
             ["Submit Date", "Amount_Numeric", "Tax ID", "Charitable Sector", "Organization"]

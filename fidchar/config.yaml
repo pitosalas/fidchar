@@ -3,77 +3,72 @@
 # Input data file path (relative to where you run the command)
 input_file: "data.csv"
 
-# Report sections in order with  optional configuration
-# Available sections:
-# - exec: Executive Summary
-# - sectors: Donation Analysis by Charitable Sector
-# - yearly: Yearly Donation Analysis
-# - top_charities: Top N Charities by Total Donations
-# - combined_recurring: Combined Recurring Charities (rule-based + CSV-based with Source column)
-# - recurring_summary: Recurring Charities Summary (rule-based only, EIN, name, total donated, last donation date)
-# - csv_recurring: CSV-Based Recurring Charities (Fidelity's recurring field only)
-# - all_charities: All Charities (comprehensive list with CSV/Rule indicators, years, current year amount)
-# - high_alignment_opportunities: High-alignment charities that aren't recurring (potential recurring candidates)
-# - remaining: Remaining Charities (multi-year, multi-donation but not recurring)
-# - patterns: One-Time vs Recurring Donation Patterns
-# - detailed: Detailed Analysis of Top N Charities
-# - definitions: Definitions of terms used in the report
-
 sections:
   - name: exec
-    # Executive Summary - no options yet
+    # Executive Summary - two summary cards at the top
+    show_one_time: false       # Show One-Time Donations card
+    show_stopped: false        # Show Stopped Recurring card
+    include: true             
 
+  # Example: flat structure (no "options:" wrapper)
   - name: sectors
     # Donation Analysis by Charitable Sector
-    options:
-      show_percentages: true
+    show_percentages: true
+    include: true
 
+  # Yearly Donation Analysis
   - name: yearly
-    # Yearly Donation Analysis
     options:
-    #   include_charts: true
+      include_charts: true
       include: false
 
+# Charities by Total Donations
   - name: top_charities
-    # Top 10 Charities by Total Donations
-    options:
-      count: 20
+    max_shown: 20  # Limit the number of charities shown (omit to show all)
+    include: false
 
-  # - name: combined_recurring
-  #   # Combined Recurring Charities - includes both rule-based and CSV-based with Source column
-  #   options:
-  #     max_shown: 100
+# Combined Recurring Charities - includes both rule-based and CSV-based with Source column
+# Example: flat structure (alternative to nested "options:")
+  - name: combined_recurring
+    max_shown: 40
+    include: false
 
+# All Charities - comprehensive list with CSV/Rule indicators, years, current year amount
   - name: all_charities
-    # All Charities - comprehensive list with CSV/Rule indicators, years, current year amount
-    # options:
-      # max_shown: 200  # Omit to show all charities
+    include: true
+    max_shown: 45
 
+
+# High-alignment charities that aren't recurring - potential recurring donation candidates
   - name: high_alignment_opportunities
-    # High-alignment charities that aren't recurring - potential recurring donation candidates
+    min_alignment_score: 80  # Minimum alignment score (default: 80)
+    max_shown: 20  # Omit to show all
+    include: false
+
+  - name: remaining
+    # Remaining Charities - multi-year, multi-donation but not recurring
     options:
-      min_alignment_score: 80  # Minimum alignment score (default: 80)
-      # max_shown: 50  # Omit to show all
+      max_remaining_shown: 100
+      include: false
 
-  # - name: remaining
-  #   # Remaining Charities - multi-year, multi-donation but not recurring
-  #   options:
-  #     max_remaining_shown: 100
-
-  # - name: patterns
-  #   # One-Time vs Recurring Donation Patterns
-  #   options:
-  #     max_one_time_shown: 100
-  #     max_stopped_shown:  100
+  - name: patterns
+    # One-Time vs Recurring Donation Patterns
+    options:
+      max_one_time_shown: 100
+      max_stopped_shown:  100
+      include: false
     
-
+  # Detailed Analysis of Charities
   - name: detailed
-    # Detailed Analysis of Top Charities
-    # options:
-    #   include_descriptions: true
+    include_descriptions: true
+    max_shown: 45  # Limit the number of charity detail cards (omit to show all)
+    include: true
 
   - name: definitions
-    # Definitions of terms used in the report
+  #  Definitions of terms used in the report
+    options:
+      include: false           # Uncomment to suppress this section
+
 
 # Output directory (relative to where you run the command)
 output_dir: "output"
@@ -81,10 +76,9 @@ output_dir: "output"
 # Charapi configuration path (for charity evaluations)
 charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 
-# Top charities configuration
-top_charities_count: 25  # Number of top charities to include in detailed analysis
-top_charities_sort: "alpha"  # Sort order: "alpha" (alphabetical) or "total_grant" (by donation amount)
-top_charities_min_grant: 1000  # Minimum total donation amount to be included in top charities
+# Charities filtering and sorting configuration
+charities_sort: "alpha"  # Sort order: "alpha" (alphabetical) or "total_grant" (by donation amount)
+charities_min_grant: 1000  # Minimum total donation amount to be included
 
 # Recurring charity determination - two methods available
 recurring_charity:
@@ -92,7 +86,7 @@ recurring_charity:
   pattern_based:
     enabled: true
     count: 15           # Look at last 15 years
-    min_years: 8        # Must have donated in at least 5 of those years
+    min_years: 6        # Must have donated in at least 6 of those years
     min_amount: 1000    # Each qualifying year must have >= $1000 in donations
 
   # CSV field-based: Use Fidelity's "Recurring" designation from the CSV

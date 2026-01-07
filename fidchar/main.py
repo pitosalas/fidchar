@@ -67,49 +67,42 @@ def main():
         # Analyze donation patterns
         one_time, stopped_recur = an.analyze_donation_patterns(df)
 
-        # Get all charities for evaluation (we'll filter later)
-        top_n = config.get("top_charities_count", 10)
-
-        # Get ALL charities by donation amount (not limited yet)
+        # Get ALL charities by donation amount
         all_charities = df.groupby("Tax ID").agg({
             "Amount_Numeric": "sum",
             "Organization": "first"
         }).sort_values("Amount_Numeric", ascending=False)
 
         # Get charity evaluations for ALL charities (includes recurring determination)
-        charapi_cfg_path = config.get("charapi_config_path")
-        recurring_config = config.get("recurring_charity")
-        char_evals, recurring_ein_set, pattern_based_ein_set = ev.get_charity_evaluations(
-            all_charities, charapi_cfg_path, df, recurring_config, one_time, stopped_recur
+        evaluator = ev.CharityEvaluator(df, config)
+        char_evals, recurring_ein_set, pattern_based_ein_set = evaluator.get_evaluations(
+            all_charities, one_time, stopped_recur
         )
 
         # Filter by minimum grant amount
-        min_grant = config.get("top_charities_min_grant", 1000)
+        min_grant = config.get("charities_min_grant", 1000)
         filtered_charities = all_charities[all_charities["Amount_Numeric"] >= min_grant]
 
-        # Get top N from filtered list
-        top_charities = filtered_charities.head(top_n)
-
         # Sort based on configuration
-        sort_order = config.get("top_charities_sort", "alpha")
+        sort_order = config.get("charities_sort", "alpha")
         if sort_order == "alpha":
-            top_charities = top_charities.sort_values("Organization")
+            filtered_charities = filtered_charities.sort_values("Organization")
         elif sort_order == "total_grant":
-            top_charities = top_charities.sort_values("Amount_Numeric", ascending=False)
+            filtered_charities = filtered_charities.sort_values("Amount_Numeric", ascending=False)
         else:
             # Default to alphabetical if invalid sort order
-            top_charities = top_charities.sort_values("Organization")
+            filtered_charities = filtered_charities.sort_values("Organization")
 
-        # Get detailed info for the filtered charities
-        char_details = an.get_charity_details(df, top_charities)
-        graph_info = vis.create_charity_yearly_graphs(top_charities, char_details, output_dir)
+        # Get detailed info for ALL filtered charities
+        char_details = an.get_charity_details(df, filtered_charities)
+        graph_info = vis.create_charity_yearly_graphs(filtered_charities, char_details, output_dir)
 
         # Generate HTML report
         print("Generating HTML report...")
 
         html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, recurring_ein_set, pattern_based_ein_set)
         html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
-                                    stopped_recur, top_charities)
+                                    stopped_recur, filtered_charities)
 
         print("Report generated: donation_analysis.html in the output directory")
 

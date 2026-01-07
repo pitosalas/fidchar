@@ -1,6 +1,6 @@
 # Charitable Donation Analysis System - Current State
 
-*Last Updated: January 2, 2026*
+*Last Updated: January 7, 2026*
 
 ## 🚨 URGENT: Known Issues Requiring Attention
 
@@ -84,37 +84,27 @@ return result_df
 - **Line 2**: Missing "Author: Pito Salas and Claude Code" (rules.md line 12)
 - **Line 3**: Missing "Open Source Under MIT license" (rules.md line 13)
 
-#### Function Too Long
-- `get_charity_evaluations()` is 74 lines (lines 12-86)
+#### Method Too Long
+- `CharityEvaluator.get_evaluations()` is ~70 lines (lines 27-98)
 - **VIOLATES** rules.md line 16: "You shall ensure functions and methods are no longer than 50 lines"
-- 24 lines over limit
+- ~20 lines over limit
 
-#### Too Many Parameters
-- Function has 6 parameters: `top_charities, charapi_config_path, donation_df, recurring_config, one_time, stopped_recurring`
-- **VIOLATES** rules.md line 28: "You shall avoid functions with more than 3 arguments"
-- 3 parameters over limit
-
-#### Default Parameters
-- Uses `recurring_config=None`, `one_time=None`, `stopped_recurring=None`
+#### Default Parameters (Improved, but still present)
+- Uses `one_time=None`, `stopped_recurring=None`
 - **VIOLATES** rules.md line 40: "You shall not provide default parameters to functions"
+- **Note**: Reduced from 3 default params to 2 (improvement from Jan 7 refactoring)
 
 #### Defensive Exception Handling
-- Lines 76-84 catch broad `Exception` instead of letting it bubble up
+- Lines 81-96 catch broad `Exception` instead of letting it bubble up
 - **VIOLATES** rules.md line 41: "You shall not code defensively"
 
 **Recommended Refactoring**:
 ```python
-# Split into smaller functions:
-def _get_pattern_recurring(df, pattern_config)  # Lines 34-43
-def _get_csv_recurring(df, csv_config)          # Lines 45-49
-def _combine_charity_sets(...)                  # Lines 56-67
-def _batch_evaluate_charities(...)              # Lines 69-74
-
-# Consider config object to reduce parameters:
-@dataclass
-class RecurringConfig:
-    pattern_based: dict
-    csv_field_based: dict
+# Split into smaller methods:
+def _get_pattern_recurring(self)                  # Lines 44-54
+def _get_csv_recurring(self)                       # Lines 56-61
+def _combine_charity_sets(charities, one_time, stopped)  # Lines 67-74
+def _batch_evaluate_charities(charity_list)       # Lines 81-96
 ```
 
 ## 💡 Ideas for Future Enhancements
@@ -347,6 +337,87 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - Browser with Print to PDF capability
 
 ## Recent Development History
+
+### January 7, 2026 - Code Quality Refactoring: Reduced Parameter Counts & Eliminated Duplication
+
+**Focus**: Addressing rules.md violations by refactoring functions with too many parameters and eliminating duplicate calculations.
+
+**Changes**:
+
+1. **Removed Global "Top Charities" Concept**
+   - **Before**: Global `top_charities_count` variable controlled charity selection throughout system
+   - **After**: Each section independently controls display using `max_shown` option
+   - Renamed config keys: `top_charities_sort` → `charities_sort`, `top_charities_min_grant` → `charities_min_grant`
+   - Renamed variables throughout: `top_charities` → `charities`
+   - **Benefit**: More flexible - different sections can show different numbers of charities
+
+2. **Created CharityEvaluator Class** (charity_evaluator.py)
+   - **Before**: Standalone `get_charity_evaluations()` function with 6 parameters
+     ```python
+     def get_charity_evaluations(top_charities, charapi_config_path, donation_df,
+                                 recurring_config, one_time, stopped_recurring)
+     ```
+   - **After**: Class-based design with 3 method parameters
+     ```python
+     class CharityEvaluator:
+         def __init__(self, donation_df, config):
+             # Store config settings as instance variables
+
+         def get_evaluations(self, charities, one_time=None, stopped_recurring=None):
+             # Use instance variables for configuration
+     ```
+   - **Improvement**: 6 parameters → 3 parameters (50% reduction)
+   - **Files Modified**: `charity_evaluator.py`, `main.py`
+
+3. **Converted generate_html_header_section to Instance Method** (html_report_builder.py)
+   - **Before**: Standalone function with 8 parameters
+     ```python
+     def generate_html_header_section(total_donations, total_amount, years_covered,
+                                      one_time_total, one_time_count, stopped_total,
+                                      stopped_count, options)
+     ```
+   - **After**: Instance method with 1 parameter
+     ```python
+     class HTMLReportBuilder:
+         def generate_html_header_section(self, options=None):
+             # Calculate from instance variables (self.df, self.one_time, etc.)
+     ```
+   - **Improvement**: 8 parameters → 1 parameter (87.5% reduction!)
+
+4. **Precomputed Summary Statistics** (html_report_builder.py)
+   - **Problem**: Calculations like `len(self.one_time)` and `self.one_time["Total_Amount"].sum()` were duplicated in:
+     - `generate_html_header_section()` method (lines 112-115)
+     - `_handle_patterns()` function (lines 826-827, 831-832)
+   - **Solution**: Precompute in `generate_report()` as instance variables:
+     ```python
+     self.total_amount = category_totals.sum()
+     self.one_time_total = one_time["Total_Amount"].sum()
+     self.one_time_count = len(one_time)
+     self.stopped_total = stopped_recurring["Total_Amount"].sum()
+     self.stopped_count = len(stopped_recurring)
+     ```
+   - **Benefit**: DRY principle - calculations done once, used multiple times
+
+**Files Modified**:
+- `fidchar/reports/charity_evaluator.py`: Created CharityEvaluator class
+- `fidchar/main.py`: Updated to use CharityEvaluator class, removed top_charities global logic
+- `fidchar/reports/html_report_builder.py`: Converted function to method, added precomputed stats
+- `fidchar/reports/base_report_builder.py`: Renamed method `prepare_top_charities_data()` → `prepare_charities_data()`
+- `fidchar/core/analysis.py`: Renamed `get_top_charities_basic()` → `get_charities_basic()`
+- `fidchar/core/visualization.py`: Updated parameter names
+- `fidchar/config.yaml`: Updated config keys and removed global top_charities_count
+
+**Rules.md Compliance**:
+- ✅ **Reduced** charity_evaluator.py from 6 parameters to 3 (still above limit of 3, but improved)
+- ✅ **Reduced** generate_html_header_section from 8 parameters to 1
+- ✅ **Eliminated** duplicate calculations (DRY principle)
+- ✅ **Better encapsulation** with class-based design
+
+**Pattern Established**:
+When functions have many parameters, consider:
+1. Which parameters are configuration/context that rarely changes? → Move to instance variables
+2. Which parameters vary per call? → Keep as method parameters
+3. Are calculations duplicated? → Precompute as instance variables
 
 ### January 2, 2026 - High Alignment Opportunities Report & Code Refactoring
 

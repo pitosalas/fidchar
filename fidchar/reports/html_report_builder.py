@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime
 from typing import List
 from fidchar.reports import base_report_builder as brb
+from fidchar.reports import html_templates as templates
 from fidchar.core import analysis as an
 from fidchar.report_generator.models import ReportTable, ReportCard, CardSection
 from fidchar.report_generator.renderers import HTMLSectionRenderer, HTMLCardRenderer
@@ -55,50 +56,27 @@ def _build_html_document(tables: List[ReportTable], doc_title, custom_header, cu
 </html>"""
 
 
-def generate_html_header_section(total_donations, total_amount, years_covered,
-                                one_time_total, stopped_total, top_charities_count):
-    """Generate the custom header and executive summary sections for fidchar report"""
-    return f"""    <div class="report-section section-header">
-        <header class="text-center mb-5 pb-3 border-bottom">
-            <h1 class="display-4">Charitable Donation Analysis Report</h1>
-            <p class="text-muted">Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-            <div class="alert alert-light border">
-                <strong>Total Donations:</strong> {total_donations:,} donations |
-                <strong>Total Amount:</strong> ${total_amount:,.2f} |
-                <strong>Years Covered:</strong> {years_covered}
-            </div>
-        </header>
+def _extract_section_options(section):
+    """Extract options from section config, supporting both nested and flat structure.
 
-        <div class="row mb-5">
-            <div class="col-md-3">
-                <div class="card border-start border-4 border-primary">
-                    <div class="card-body">
-                        <h6 class="card-title">One-Time Donations</h6>
-                        <p class="card-text"><strong>78 organizations</strong></p>
-                        <p class="card-text">Total: ${one_time_total:,.2f}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-start border-4 border-warning">
-                    <div class="card-body">
-                        <h6 class="card-title">Stopped Recurring</h6>
-                        <p class="card-text"><strong>5 organizations</strong></p>
-                        <p class="card-text">Total: ${stopped_total:,.2f}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-start border-4 border-success">
-                    <div class="card-body">
-                        <h6 class="card-title">Top {top_charities_count} Charities</h6>
-                        <p class="card-text"><strong>Major recipients</strong></p>
-                        <p class="card-text">Detailed analysis below</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>"""
+    Supports both:
+      - name: foo
+        options:
+          bar: 1
+
+    And:
+      - name: foo
+        bar: 1
+    """
+    if not isinstance(section, dict):
+        return {}
+
+    # If there's an explicit 'options' key, use it
+    if 'options' in section:
+        return section.get('options', {})
+
+    # Otherwise, treat all keys except 'name' as options (flat structure)
+    return {k: v for k, v in section.items() if k != 'name'}
 
 
 class HTMLReportBuilder(brb.BaseReportBuilder):
@@ -109,20 +87,84 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         self.table_renderer = HTMLSectionRenderer()
         self.card_renderer = HTMLCardRenderer()
 
-    def generate_top_charities_bootstrap(self, top_charities):
-        """Generate top charities table using Bootstrap renderer - two columns for print"""
-        # Build DataFrame with formatted org names that include badges
-        df_data = []
-        for ein, row in top_charities.iterrows():
-            # Get formatted org name with badges
-            charity_info = self.format_charity_info(ein, row['Organization'], row['Amount_Numeric'])
+    def generate_html_header_section(self, options=None):
+        """Generate the custom header and executive summary sections for fidchar report.
 
-            df_data.append({
-                'Organization': charity_info['html_org'],
-                'Total Amount': f"${row['Amount_Numeric']:,.0f}"
-            })
+        Uses precomputed instance statistics to render the header.
 
-        # Split data into two columns for print layout
+        Args:
+            options: Dict with display options (show_one_time, show_stopped)
+
+        Returns:
+            HTML string for the header section
+        """
+        options = options or {}
+        show_one_time = options.get('show_one_time', True)
+        show_stopped = options.get('show_stopped', True)
+
+        # If all subsections are disabled, suppress the entire section
+        if not show_one_time and not show_stopped:
+            return ""
+
+        # Calculate statistics from instance data
+        total_donations = len(self.df)
+        years_covered = f"{self.df['Year'].min()} - {self.df['Year'].max()}"
+
+        # Build cards HTML based on options (using precomputed instance variables)
+        cards_html = ""
+        if show_one_time:
+            cards_html += f"""
+            <div class="col-md-3">
+                <div class="card border-start border-4 border-primary">
+                    <div class="card-body">
+                        <h6 class="card-title">One-Time Donations</h6>
+                        <p class="card-text"><strong>{self.one_time_count} organizations</strong></p>
+                        <p class="card-text">Total: ${self.one_time_total:,.2f}</p>
+                    </div>
+                </div>
+            </div>"""
+
+        if show_stopped:
+            cards_html += f"""
+            <div class="col-md-3">
+                <div class="card border-start border-4 border-warning">
+                    <div class="card-body">
+                        <h6 class="card-title">Stopped Recurring</h6>
+                        <p class="card-text"><strong>{self.stopped_count} organizations</strong></p>
+                        <p class="card-text">Total: ${self.stopped_total:,.2f}</p>
+                    </div>
+                </div>
+            </div>"""
+
+        # Only show row if we have cards to display
+        cards_section = f"""
+        <div class="row mb-5">
+{cards_html}
+        </div>""" if cards_html else ""
+
+        return f"""    <div class="report-section section-header">
+        <header class="text-center mb-5 pb-3 border-bottom">
+            <h1 class="display-4">Charitable Donation Analysis Report</h1>
+            <p class="text-muted">Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
+            <div class="alert alert-light border">
+                <strong>Total Donations:</strong> {total_donations:,} donations |
+                <strong>Total Amount:</strong> ${self.total_amount:,.2f} |
+                <strong>Years Covered:</strong> {years_covered}
+            </div>
+        </header>
+{cards_section}
+    </div>"""
+
+    def _render_two_column_table(self, df_data, title=None):
+        """Render DataFrame data as two-column layout for print.
+
+        Args:
+            df_data: List of dictionaries to convert to DataFrame
+            title: Optional title to display above the columns
+
+        Returns:
+            HTML string with two-column table layout
+        """
         mid_point = (len(df_data) + 1) // 2
         df_left = pd.DataFrame(df_data[:mid_point])
         df_right = pd.DataFrame(df_data[mid_point:])
@@ -133,14 +175,37 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         left_html = self.table_renderer.render(table_left)
         right_html = self.table_renderer.render(table_right)
 
-        # Wrap in two-column layout with title
-        return f"""
-        <h2 class="mb-3">Top {len(top_charities)} Charities by Total Donations</h2>
+        columns_html = f"""
         <div class="row">
             <div class="col-md-6">{left_html}</div>
             <div class="col-md-6">{right_html}</div>
         </div>
         """
+
+        if title:
+            return f"""
+        <h2 class="mb-3">{title}</h2>
+{columns_html}"""
+        else:
+            return columns_html
+
+    def generate_top_charities_bootstrap(self, charities):
+        """Generate charities table using Bootstrap renderer - two columns for print"""
+        # Build DataFrame with formatted org names that include badges
+        df_data = []
+        for ein, row in charities.iterrows():
+            # Get formatted org name with badges
+            charity_info = self.format_charity_info(ein, row['Organization'], row['Amount_Numeric'])
+
+            df_data.append({
+                'Organization': charity_info['html_org'],
+                'Total Amount': f"${row['Amount_Numeric']:,.0f}"
+            })
+
+        return self._render_two_column_table(
+            df_data,
+            title=f"Charities by Total Donations ({len(charities)} charities)"
+        )
 
     def generate_category_table_bootstrap(self, category_totals, total_amount, show_percentages=False):
         """Generate category totals table using Bootstrap renderer"""
@@ -186,25 +251,10 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Date': row['First_Date'].strftime("%m/%d/%Y")
             })
 
-        # Split data into two columns for print layout
-        mid_point = (len(df_data) + 1) // 2
-        df_left = pd.DataFrame(df_data[:mid_point])
-        df_right = pd.DataFrame(df_data[mid_point:])
-
-        table_left = ReportTable.from_dataframe(df_left, title=None)
-        table_right = ReportTable.from_dataframe(df_right, title=None)
-
-        left_html = self.table_renderer.render(table_left)
-        right_html = self.table_renderer.render(table_right)
-
-        # Wrap in two-column layout with title
-        return f"""
-        <h2 class="mb-3">One-Time Donations ({len(one_time)} organizations)</h2>
-        <div class="row">
-            <div class="col-md-6">{left_html}</div>
-            <div class="col-md-6">{right_html}</div>
-        </div>
-        """
+        return self._render_two_column_table(
+            df_data,
+            title=f"One-Time Donations ({len(one_time)} organizations)"
+        )
 
     def generate_stopped_table_bootstrap(self, stopped_recurring, max_shown=15):
         """Generate stopped recurring table using Bootstrap renderer"""
@@ -233,11 +283,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
     def generate_recurring_summary_section_html(self, data):
         """Generate recurring charities summary as HTML - two columns for print"""
         if data is None:
-            return """
-    <div class="report-section">
-        <h2 class="section-title">Recurring Charities Summary</h2>
-        <p>No recurring charities identified.</p>
-    </div>"""
+            return templates.no_recurring_charities()
 
         # Build DataFrame from rows
         df_data = []
@@ -254,38 +300,25 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Last Donation': last_date_str
             })
 
-        # Split data into two columns for print layout
-        mid_point = (len(df_data) + 1) // 2
-        df_left = pd.DataFrame(df_data[:mid_point])
-        df_right = pd.DataFrame(df_data[mid_point:])
+        columns_html = self._render_two_column_table(df_data)
 
-        table_left = ReportTable.from_dataframe(df_left, title=None)
-        table_right = ReportTable.from_dataframe(df_right, title=None)
+        # Get threshold values from config
+        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
+        min_years = pattern_config.get('min_years', 6)
+        min_amount = pattern_config.get('min_amount', 1000)
 
-        left_html = self.table_renderer.render(table_left)
-        right_html = self.table_renderer.render(table_right)
-
-        return f"""
-    <div class="report-section">
-        <h2 class="section-title">Recurring Charities (≥5 years, ≥$1,000/year)</h2>
-        <p>{data['count']} charities meeting recurring threshold - at least 5 years with $1,000+ donations:</p>
-        <div class="row">
-            <div class="col-md-6">{left_html}</div>
-            <div class="col-md-6">{right_html}</div>
-        </div>
-        <p class="fw-bold mt-4">
-            Total donated to recurring charities: ${data['total']:,.2f}
-        </p>
-    </div>"""
+        return templates.recurring_charities_section(
+            min_years=min_years,
+            min_amount=min_amount,
+            count=data['count'],
+            total=data['total'],
+            columns_html=columns_html
+        )
 
     def generate_csv_recurring_section_html(self, csv_recurring_df, max_shown):
         """Generate CSV-based recurring charities section as HTML"""
         if csv_recurring_df is None or csv_recurring_df.empty:
-            return """
-    <div class="report-section">
-        <h2 class="section-title">CSV-Based Recurring Charities</h2>
-        <p>No CSV-based recurring charities found.</p>
-    </div>"""
+            return templates.no_csv_recurring_charities()
 
         display_df = csv_recurring_df.head(max_shown)
         total_amount = csv_recurring_df['Total'].sum()
@@ -305,16 +338,12 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         table = ReportTable.from_dataframe(table_df, title=None)
         table_html = self.table_renderer.render(table)
 
-        return f"""
-    <div class="report-section">
-        <h2 class="section-title">CSV-Based Recurring Charities</h2>
-        <p>Charities marked as recurring in Fidelity's export (from "Recurring" field)</p>
-        <p>{len(csv_recurring_df)} total recurring charities (showing top {len(display_df)})</p>
-        {table_html}
-        <p class="fw-bold mt-4">
-            Total donated to CSV-based recurring charities: ${total_amount:,.2f}
-        </p>
-    </div>"""
+        return templates.csv_recurring_section(
+            csv_count=len(csv_recurring_df),
+            display_count=len(display_df),
+            table_html=table_html,
+            total_amount=total_amount
+        )
 
     def generate_combined_recurring_section_html(self, combined_df, max_shown):
         """Generate combined recurring charities section as HTML.
@@ -362,16 +391,21 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         if stopped_count > 0:
             breakdown += f", {stopped_count} stopped"
 
-        return f"""
-    <div class="report-section">
-        <h2 class="section-title">Recurring Charities</h2>
-        <p>Combines charities from rule-based detection (≥5 years, ≥$1,000/year), CSV field (Fidelity's recurring marker), and stopped recurring donations</p>
-        <p>{total_count} total charities (showing top {len(display_df)}): {active_count} active ({breakdown})</p>
-        {table_html}
-        <p class="fw-bold mt-4">
-            Total donated to all listed charities: ${total_amount:,.2f}
-        </p>
-    </div>"""
+        # Get threshold values from config
+        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
+        min_years = pattern_config.get('min_years', 6)
+        min_amount = pattern_config.get('min_amount', 1000)
+
+        return templates.combined_recurring_section(
+            min_years=min_years,
+            min_amount=min_amount,
+            total_count=total_count,
+            display_count=len(display_df),
+            active_count=active_count,
+            breakdown=breakdown,
+            table_html=table_html,
+            total_amount=total_amount
+        )
 
     def generate_all_charities_section_html(self, all_charities_df, max_shown, title="All Charities"):
         """Generate comprehensive all charities list as HTML.
@@ -405,34 +439,35 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'EIN': ein,
                 'Organization': charity_info['html_org'],
                 'Total': f"${row['Total']:,.0f}",
-                'CSV': row['CSV'],
-                'Rule': row['Rule'],
+                'Recurr': row['Rule'],
+                'Count': int(row['Count']),
                 'Years': row['Years'],
-                current_year_col: f"${row[current_year_col]:,.0f}" if row[current_year_col] > 0 else "",
-                'Count': int(row['Count'])
+                'Current Year': f"${row[current_year_col]:,.0f}" if row[current_year_col] > 0 else ""
             })
 
         table_df = pd.DataFrame(df_data)
         table = ReportTable.from_dataframe(table_df, title=None)
         table_html = self.table_renderer.render(table)
 
-        # Count CSV and Rule charities
-        csv_count = (all_charities_df['CSV'] == '✓').sum()
+        # Count Rule-based recurring charities
         rule_count = (all_charities_df['Rule'] == '✓').sum()
-        both_count = ((all_charities_df['CSV'] == '✓') & (all_charities_df['Rule'] == '✓')).sum()
 
         showing_text = f"showing all {total_charities}" if max_shown is None else f"showing top {len(display_df)} of {total_charities}"
 
-        return f"""
-    <div class="report-section">
-        <h2 class="section-title">{title}</h2>
-        <p>Charities ordered by total donation amount ({showing_text})</p>
-        <p>{csv_count} in CSV recurring, {rule_count} meet rule-based criteria, {both_count} in both</p>
-        {table_html}
-        <p class="fw-bold mt-4">
-            Total donated to all charities: ${total_amount:,.2f}
-        </p>
-    </div>"""
+        # Get threshold values from config
+        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
+        min_years = pattern_config.get('min_years', 6)
+        min_amount = pattern_config.get('min_amount', 1000)
+
+        return templates.all_charities_section(
+            title=title,
+            showing_text=showing_text,
+            rule_count=rule_count,
+            min_years=min_years,
+            min_amount=min_amount,
+            table_html=table_html,
+            total_amount=total_amount
+        )
 
     def generate_remaining_charities_section_html(self, data):
         """Generate remaining charities section as HTML - two columns for print"""
@@ -454,29 +489,20 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                 'Years': row['unique_years']
             })
 
-        # Split data into two columns for print layout
-        mid_point = (len(df_data) + 1) // 2
-        df_left = pd.DataFrame(df_data[:mid_point])
-        df_right = pd.DataFrame(df_data[mid_point:])
+        columns_html = self._render_two_column_table(df_data)
 
-        table_left = ReportTable.from_dataframe(df_left, title=None)
-        table_right = ReportTable.from_dataframe(df_right, title=None)
+        # Get threshold values from config
+        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
+        min_years = pattern_config.get('min_years', 6)
+        min_amount = pattern_config.get('min_amount', 1000)
 
-        left_html = self.table_renderer.render(table_left)
-        right_html = self.table_renderer.render(table_right)
-
-        return f"""
-    <div class="report-section">
-        <h2 class="section-title">Remaining Charities ({data['count']} organizations)</h2>
-        <p>Multi-year, multi-donation charities that don't meet the recurring threshold (5 years with $1,000+ each year). These represent sustained giving relationships at lower amounts or fewer qualifying years.</p>
-        <div class="row">
-            <div class="col-md-6">{left_html}</div>
-            <div class="col-md-6">{right_html}</div>
-        </div>
-        <p class="fw-bold mt-4">
-            Total donated to remaining charities: ${data['total']:,.2f}
-        </p>
-    </div>"""
+        return templates.remaining_charities_section(
+            count=data['count'],
+            min_years=min_years,
+            min_amount=min_amount,
+            columns_html=columns_html,
+            total=data['total']
+        )
 
     def generate_charity_card_bootstrap(self, i, tax_id):
         """Generate charity detail as Bootstrap card"""
@@ -590,61 +616,111 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         return self.card_renderer.render(card)
 
     def generate_report(self, category_totals, yearly_amounts, yearly_counts, one_time,
-                       stopped_recurring, top_charities):
+                       stopped_recurring, charities):
         """Generate complete HTML report using render_html_document base"""
-        total_amount = category_totals.sum()
-        total_donations = len(self.df)
-        years_covered = f"{self.df['Year'].min()} - {self.df['Year'].max()}"
-        one_time_total = one_time["Total_Amount"].sum()
-        stopped_total = stopped_recurring["Total_Amount"].sum()
-        top_charities_count = len(top_charities)
+        # Store data as instance variables for access by section handlers
+        self.category_totals = category_totals
+        self.yearly_amounts = yearly_amounts
+        self.yearly_counts = yearly_counts
+        self.one_time = one_time
+        self.stopped_recurring = stopped_recurring
+        self.charities = charities
 
-        # Generate custom header
-        custom_header = generate_html_header_section(
-            total_donations, total_amount, years_covered,
-            one_time_total, stopped_total, top_charities_count
-        )
+        # Calculate summary statistics (precomputed to avoid duplication)
+        self.total_amount = category_totals.sum()
+        self.one_time_total = one_time["Total_Amount"].sum()
+        self.one_time_count = len(one_time)
+        self.stopped_total = stopped_recurring["Total_Amount"].sum()
+        self.stopped_count = len(stopped_recurring)
 
-        # Get sector options from config
-        sectors_options = {}
-        for section in self.config.get("sections", []):
-            if isinstance(section, dict) and section.get("name") == "sectors":
-                sectors_options = section.get("options", {})
+        # Get exec section options from config
+        exec_options = {}
+        exec_enabled = False
+        sections = self.config.get("sections", [])
+        for section in sections:
+            section_name = section if isinstance(section, str) else section.get("name")
+            if section_name == "exec":
+                exec_enabled = True
+                if isinstance(section, dict):
+                    section_opts = _extract_section_options(section)
+                    # Check include flag: defaults to True if not specified
+                    include = section_opts.get("include", True)
+                    if include == False:
+                        exec_enabled = False
+                        break
+                    exec_options = section_opts
                 break
 
-        # Generate HTML tables using Bootstrap renderers
-        show_percentages = sectors_options.get("show_percentages", False)
-        categories_html = self.generate_category_table_bootstrap(category_totals, total_amount, show_percentages)
-        yearly_html = self.generate_yearly_table_bootstrap(yearly_amounts, yearly_counts)
-        top_charities_html = self.generate_top_charities_bootstrap(top_charities)
+        # Generate custom header only if exec section is enabled
+        custom_header = ""
+        if exec_enabled:
+            custom_header = self.generate_html_header_section(exec_options)
 
         # Generate sections HTML (excluding definitions which will be added at the end)
         sections_html = generate_table_sections(
-            categories_html,
-            yearly_html,
-            top_charities_html,
-            one_time,
-            stopped_recurring,
             self.config,
-            self.charity_evaluations,
-            self,
-            top_charities_count,
-            exclude_definitions=True,  # We'll add this manually at the end
-            top_charities=top_charities
+            builder=self,
+            exclude_definitions=True  # We'll add this manually at the end
         )
 
-        # Generate charity cards section
-        charity_cards_html = f"""
-    <div class="report-section section-detailed">
-        <h2 class="section-title">Detailed Analysis of Top {top_charities_count} Charities</h2>
-        <p>Complete donation history and trend analysis for each of the top {top_charities_count} charities:</p>
-"""
-        for i, (tax_id, _) in enumerate(top_charities.iterrows(), 1):
-            charity_cards_html += self.generate_charity_card_bootstrap(i, tax_id)
-        charity_cards_html += "\n    </div>"
+        # Check if detailed section should be included
+        detailed_enabled = False
+        detailed_max_shown = None
+        for section in sections:
+            section_name = section if isinstance(section, str) else section.get("name")
+            if section_name == "detailed":
+                detailed_enabled = True
+                if isinstance(section, dict):
+                    section_opts = _extract_section_options(section)
+                    # Check include flag: defaults to True if not specified
+                    include = section_opts.get("include", True)
+                    if include == False:
+                        detailed_enabled = False
+                    # Get max_shown option
+                    detailed_max_shown = section_opts.get("max_shown")
+                break
 
-        # Generate definitions section (at the very end)
-        definitions_html = generate_definitions_section()
+        # Generate charity cards section only if enabled
+        charity_cards_html = ""
+        if detailed_enabled:
+            # Determine how many charities to show
+            charities_to_show = charities.head(detailed_max_shown) if detailed_max_shown else charities
+            num_shown = len(charities_to_show)
+            total_charities = len(charities)
+
+            # Update title based on whether we're limiting or showing all
+            if detailed_max_shown and num_shown < total_charities:
+                title_text = f"Detailed Analysis ({num_shown} of {total_charities} charities)"
+            else:
+                title_text = f"Detailed Analysis ({num_shown} charities)"
+
+            charity_cards_html = f"""
+    <div class="report-section section-detailed">
+        <h2 class="section-title">{title_text}</h2>
+        <p>Complete donation history and trend analysis for each charity:</p>
+"""
+            for i, (tax_id, _) in enumerate(charities_to_show.iterrows(), 1):
+                charity_cards_html += self.generate_charity_card_bootstrap(i, tax_id)
+            charity_cards_html += "\n    </div>"
+
+        # Check if definitions section should be included
+        definitions_enabled = False
+        for section in sections:
+            section_name = section if isinstance(section, str) else section.get("name")
+            if section_name == "definitions":
+                definitions_enabled = True
+                if isinstance(section, dict):
+                    section_opts = _extract_section_options(section)
+                    # Check include flag: defaults to True if not specified
+                    include = section_opts.get("include", True)
+                    if include == False:
+                        definitions_enabled = False
+                break
+
+        # Generate definitions section (at the very end) only if enabled
+        definitions_html = ""
+        if definitions_enabled:
+            definitions_html = generate_definitions_section()
 
         # Combine body content: sections + charity cards + definitions
         body_content = f"{sections_html}\n{charity_cards_html}\n{definitions_html}"
@@ -684,248 +760,152 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
             f.write(html_content)
 
 
-# Note: Print CSS is in styles.css @media print section
-# The commented code below shows the old inline print CSS for reference only
-if False:
-    unused_print_css = """
-        @media print {
-            /* Scale down overall size for article-like appearance */
-            body {
-                font-size: 10pt;
-                line-height: 1.3;
-            }
+# Helper functions for section generation
 
-            /* Reduce container width and margins */
-            .container {
-                max-width: 100%;
-                margin: 0;
-                padding: 0.5cm;
-            }
-
-            /* Compact headers */
-            h1, .display-4 {
-                font-size: 18pt;
-                margin-bottom: 0.3cm;
-            }
-            h2, .section-title {
-                font-size: 14pt;
-                margin-top: 0.4cm;
-                margin-bottom: 0.2cm;
-            }
-            h3 {
-                font-size: 12pt;
-                margin-top: 0.3cm;
-                margin-bottom: 0.15cm;
-            }
-            h4 {
-                font-size: 11pt;
-                margin-bottom: 0.15cm;
-            }
-
-            /* Compact paragraphs and spacing */
-            p {
-                margin-bottom: 0.2cm;
-                font-size: 9pt;
-            }
-
-            /* Compact tables */
-            .table {
-                font-size: 8pt;
-                margin-bottom: 0.3cm;
-            }
-            .table td,
-            .table th {
-                padding: 0.1cm 0.15cm;
-            }
-
-            /* Compact cards - 2x2 grid (4 per page) */
-            .card {
-                width: 48%;
-                float: left;
-                margin-right: 2%;
-                margin-bottom: 0.3cm;
-                page-break-inside: avoid;
-                height: auto;
-                max-height: 12cm;
-                box-sizing: border-box;
-            }
-            /* Clear float every 2 cards to create rows */
-            .card:nth-of-type(2n) {
-                margin-right: 0;
-            }
-            .card:nth-of-type(2n+1) {
-                clear: left;
-            }
-            /* Force page break and clear floats after every 4th card */
-            .card:nth-of-type(4n) {
-                page-break-after: always;
-                margin-bottom: 0;
-            }
-            .card:nth-of-type(4n)::after {
-                content: "";
-                display: table;
-                clear: both;
-            }
-            .card-header {
-                padding: 0.2cm 0.3cm;
-                font-size: 9pt;
-            }
-            .card-body {
-                padding: 0.25cm;
-                font-size: 7pt;
-                line-height: 1.3;
-                overflow: hidden;
-            }
-            .card-body::after {
-                content: "";
-                display: table;
-                clear: both;
-            }
-
-            /* Compact lists */
-            ul, ol {
-                margin-bottom: 0.2cm;
-                padding-left: 0.8cm;
-            }
-            li {
-                margin-bottom: 0.08cm;
-                font-size: 7pt;
-                line-height: 1.3;
-            }
-
-            /* Compact definition lists - remove column layout for print */
-            dl.row {
-                margin-bottom: 0.2cm;
-                display: block;
-                overflow: hidden;
-                clear: both;
-            }
-            dl.row::after {
-                content: "";
-                display: table;
-                clear: both;
-            }
-            dt {
-                padding: 0;
-                margin: 0;
-                font-size: 7pt;
-                line-height: 1.3;
-                float: none;
-                width: auto;
-                display: inline;
-                font-weight: 600;
-            }
-            dd {
-                padding: 0;
-                margin: 0;
-                font-size: 7pt;
-                line-height: 1.3;
-                float: none;
-                width: auto;
-                display: inline;
-            }
-            dt::after {
-                content: " ";
-            }
-            dd::after {
-                content: "";
-                display: block;
-                margin-bottom: 0.05cm;
-            }
-
-            /* Reduce image sizes */
-            img {
-                max-width: 100%;
-                max-height: 3.5cm;
-                height: auto;
-            }
-
-            /* Compact alerts and badges */
-            .alert {
-                padding: 0.2cm 0.3cm;
-                margin-bottom: 0.3cm;
-                font-size: 9pt;
-            }
-            .badge {
-                font-size: 7pt;
-                padding: 0.1cm 0.15cm;
-            }
-
-            /* Hide Bootstrap grid spacing */
-            .row {
-                margin-left: 0;
-                margin-right: 0;
-            }
-
-            /* Page break controls */
-            .report-section {
-                page-break-after: auto;
-                page-break-inside: auto;
-                overflow: hidden;
-            }
-            .report-section::after {
-                content: "";
-                display: table;
-                clear: both;
-            }
-            .report-section:last-of-type {
-                page-break-after: auto;
-            }
-            /* Only prevent page breaks inside non-card sections */
-            .report-section:not(:has(.card)) {
-                page-break-inside: avoid;
-                page-break-after: always;
-            }
-            .section-title {
-                page-break-after: avoid;
-            }
-
-            /* Compact header section */
-            header {
-                margin-bottom: 0.4cm;
-                padding-bottom: 0.2cm;
-            }
-
-            /* Compact footer */
-            footer {
-                margin-top: 0.4cm;
-                padding-top: 0.2cm;
-                font-size: 8pt;
-            }
-
-            /* Definitions section */
-            .definitions-content {
-                font-size: 8pt;
-                line-height: 1.3;
-            }
-            .definitions-content h1 {
-                font-size: 14pt;
-                margin-bottom: 0.3cm;
-            }
-            .definitions-content h2 {
-                font-size: 12pt;
-                margin-top: 0.3cm;
-                margin-bottom: 0.2cm;
-                page-break-after: avoid;
-            }
-            .definitions-content h3 {
-                font-size: 10pt;
-                margin-top: 0.2cm;
-                margin-bottom: 0.1cm;
-                page-break-after: avoid;
-            }
-            .definitions-content p {
-                margin-bottom: 0.15cm;
-            }
-        }"""  # End of old print CSS - kept for reference only, not used
+def _add_section_class(html: str, section_name: str) -> str:
+    """Add a specific section CSS class to HTML."""
+    return html.replace('class="report-section"', f'class="report-section section-{section_name}"', 1)
 
 
-def generate_table_sections(categories_html, yearly_html, top_charities_html,
-                           one_time, stopped_recurring, config: dict,
-                           charity_evaluations=None, builder=None, top_charities_count=10,
-                           exclude_definitions=False, top_charities=None):
+def _handle_sectors(builder, section_options):
+    """Generate sectors section with categories and yearly graphs."""
+    show_percentages = section_options.get("show_percentages", False)
+    categories_html = builder.generate_category_table_bootstrap(
+        builder.category_totals,
+        builder.total_amount,
+        show_percentages
+    )
+
+    return templates.sectors_section(categories_html=categories_html)
+
+
+def _handle_yearly(builder, _section_options):
+    """Generate yearly table section."""
+    yearly_html = builder.generate_yearly_table_bootstrap(
+        builder.yearly_amounts,
+        builder.yearly_counts
+    )
+    return templates.yearly_section(yearly_html=yearly_html)
+
+
+def _handle_top_charities(builder, section_options):
+    """Generate charities section."""
+    max_shown = section_options.get("max_shown", None)
+    charities_to_show = builder.charities.head(max_shown) if max_shown else builder.charities
+    charities_html = builder.generate_top_charities_bootstrap(charities_to_show)
+    return templates.top_charities_section(top_charities_html=charities_html)
+
+
+def _create_high_alignment_filter(min_alignment: int):
+    """Create filter function for high-alignment non-recurring charities.
+
+    Args:
+        min_alignment: Minimum alignment score threshold (e.g., 80)
+
+    Returns:
+        Filter function that takes (ein, in_csv, in_rule, evaluation) -> bool
+    """
+    def filter_high_alignment_non_recurring(_ein, _in_csv, in_rule, evaluation):
+        # Must NOT be rule-based recurring
+        if in_rule:
+            return False
+        # Must have evaluation with alignment score >= threshold
+        if evaluation and hasattr(evaluation, 'alignment_score'):
+            return evaluation.alignment_score >= min_alignment
+        return False
+
+    return filter_high_alignment_non_recurring
+
+
+def _handle_patterns(builder, section_options):
+    """Generate Patterns section."""
+    max_one_time = section_options.get("max_one_time_shown", 20)
+    max_stopped = section_options.get("max_stopped_shown", 15)
+
+    one_time_table = builder.generate_one_time_table_bootstrap(builder.one_time, max_shown=max_one_time)
+    overflow_one_time = max(0, builder.one_time_count - max_one_time)
+
+    stopped_table = builder.generate_stopped_table_bootstrap(builder.stopped_recurring, max_shown=max_stopped)
+    overflow_stopped = max(0, builder.stopped_count - max_stopped)
+
+    return templates.patterns_section(
+        one_time_table=one_time_table,
+        one_time_total=builder.one_time_total,
+        one_time_overflow=overflow_one_time,
+        stopped_table=stopped_table,
+        stopped_total=builder.stopped_total,
+        stopped_overflow=overflow_stopped
+    )
+
+
+def _handle_recurring_summary(builder, section_options):
+    """Generate Recurring Summary section."""
+    max_recurring = section_options.get("max_recurring_shown", 20)
+    data = builder.prepare_recurring_summary_data(max_shown=max_recurring)
+    summary_html = builder.generate_recurring_summary_section_html(data)
+    return _add_section_class(summary_html, "recurring-summary")
+
+
+def _handle_csv_recurring(builder, section_options, csv_recurring_df):
+    """Generate CSV Recurring section."""
+    max_shown = section_options.get("max_shown", 100)
+    csv_html = builder.generate_csv_recurring_section_html(csv_recurring_df, max_shown)
+    return _add_section_class(csv_html, "csv-recurring")
+
+
+def _handle_combined_recurring(builder, section_options, csv_recurring_df):
+    """Generate Combined Recurring section."""
+    max_shown = section_options.get("max_shown", 100)
+    combined_df = builder.prepare_combined_recurring_data(csv_recurring_df, max_shown)
+    combined_html = builder.generate_combined_recurring_section_html(combined_df, max_shown)
+    return _add_section_class(combined_html, "combined-recurring")
+
+
+def _handle_remaining(builder, section_options):
+    """Generate Remaining Charities section."""
+    max_remaining = section_options.get("max_remaining_shown", 100)
+    data = builder.prepare_remaining_charities_data(builder.one_time, builder.charities, max_shown=max_remaining)
+    remaining_html = builder.generate_remaining_charities_section_html(data)
+    return _add_section_class(remaining_html, "remaining")
+
+
+def _handle_all_charities(builder, section_options, csv_recurring_df):
+    """Generate All Charities section."""
+    max_shown = section_options.get("max_shown", None)
+    all_charities_df = builder.prepare_all_charities_data(csv_recurring_df, max_shown)
+    all_charities_html = builder.generate_all_charities_section_html(all_charities_df, max_shown)
+    return _add_section_class(all_charities_html, "all-charities")
+
+
+def _handle_high_alignment_opportunities(builder, section_options, csv_recurring_df):
+    """Generate High Alignment Opportunities section."""
+    max_shown = section_options.get("max_shown", None)
+    min_alignment = section_options.get("min_alignment_score", 80)
+
+    filter_func = _create_high_alignment_filter(min_alignment)
+    opportunities_df = builder.prepare_all_charities_data(
+        csv_recurring_df, max_shown, filter_func=filter_func
+    )
+    opportunities_html = builder.generate_all_charities_section_html(
+        opportunities_df, max_shown,
+        title=f"High Alignment Opportunities (≥{min_alignment}% alignment, not recurring)"
+    )
+    return _add_section_class(opportunities_html, "high-alignment")
+
+
+def generate_table_sections(config: dict, builder=None, exclude_definitions=False):
+    """Generate all report sections based on configuration.
+
+    This function dispatches to specialized handlers for each section type.
+    All handlers access data through the builder instance.
+    """
     sections = config.get("sections", {})
     html_content = ""
+
+    # Compute csv_recurring_df once (used by multiple sections)
+    csv_recurring_df = None
+    if builder:
+        csv_recurring_df = an.get_csv_recurring_details(builder.df)
 
     for section in sections:
         section_id = section if isinstance(section, str) else section.get("name")
@@ -933,127 +913,36 @@ def generate_table_sections(categories_html, yearly_html, top_charities_html,
         # Skip definitions if we're excluding it (will be added manually at the end)
         if exclude_definitions and section_id == "definitions":
             continue
-        section_options = section.get("options", {}) if isinstance(section, dict) else {}
 
-        # Skip section if include is explicitly set to false
-        if section_options.get("include") == False:
+        section_options = _extract_section_options(section)
+
+        # Check include flag: defaults to True if not specified
+        # include: true  -> include section
+        # include: false -> skip section
+        # (no include)   -> include section (default)
+        include = section_options.get("include", True)
+        if include == False:
             continue
-        
-        if section_id == "sectors":
-            html_content += f"""
-    <div class="report-section section-sectors">
-        <div class="row">
-            <div class="col-md-5">
-                {categories_html}
-            </div>
-            <div class="col-md-7">
-                <h2 class="section-title">Yearly Analysis</h2>
-                <div class="text-center">
-                    <img src="images/yearly_amounts.png" alt="Yearly Donation Amounts" class="img-fluid mb-2" style="max-width: 100%;">
-                    <img src="images/yearly_counts.png" alt="Yearly Donation Counts" class="img-fluid" style="max-width: 100%;">
-                </div>
-            </div>
-        </div>
-    </div>"""
-        elif section_id == "yearly":
-            html_content += f"""
-    <div class="report-section section-yearly">
-        {yearly_html}
-    </div>"""
-        elif section_id == "top_charities":
-            html_content += f"""
-    <div class="report-section section-top-charities">
-        {top_charities_html}
-    </div>"""
-        elif section_id == "patterns":
-            if builder:
-                # Get configurable limits from section options
-                max_one_time = section_options.get("max_one_time_shown", 20)
-                max_stopped = section_options.get("max_stopped_shown", 15)
 
-                one_time_table = builder.generate_one_time_table_bootstrap(one_time, max_shown=max_one_time)
-                one_time_total = one_time["Total_Amount"].sum()
-                one_time_count = len(one_time)
-                overflow_one_time = max(0, one_time_count - max_one_time)
+        # All sections now use handlers
+        if builder:
+            # Create handler map with closures capturing needed variables
+            handlers = {
+                "sectors": lambda: _handle_sectors(builder, section_options),
+                "yearly": lambda: _handle_yearly(builder, section_options),
+                "top_charities": lambda: _handle_top_charities(builder, section_options),
+                "patterns": lambda: _handle_patterns(builder, section_options),
+                "recurring_summary": lambda: _handle_recurring_summary(builder, section_options),
+                "csv_recurring": lambda: _handle_csv_recurring(builder, section_options, csv_recurring_df),
+                "combined_recurring": lambda: _handle_combined_recurring(builder, section_options, csv_recurring_df),
+                "remaining": lambda: _handle_remaining(builder, section_options),
+                "all_charities": lambda: _handle_all_charities(builder, section_options, csv_recurring_df),
+                "high_alignment_opportunities": lambda: _handle_high_alignment_opportunities(builder, section_options, csv_recurring_df),
+            }
 
-                stopped_table = builder.generate_stopped_table_bootstrap(stopped_recurring, max_shown=max_stopped)
-                stopped_total = stopped_recurring["Total_Amount"].sum()
-                stopped_count = len(stopped_recurring)
-                overflow_stopped = max(0, stopped_count - max_stopped)
-
-                html_content += f"""
-    <div class="report-section section-patterns">
-        {one_time_table}"""
-                if overflow_one_time > 0:
-                    html_content += f"""
-        <p><em>... and {overflow_one_time} more organizations</em></p>"""
-                html_content += f"""
-        <p class="mt-3"><strong>One-time donations total:</strong> ${one_time_total:,.2f}</p>
-
-        {stopped_table}"""
-                if overflow_stopped > 0:
-                    html_content += f"""
-        <p><em>... and {overflow_stopped} more organizations</em></p>"""
-                html_content += f"""
-        <p class="mt-3"><strong>Stopped recurring donations total:</strong> ${stopped_total:,.2f}</p>
-    </div>"""
-        elif section_id == "recurring_summary":
-            if builder:
-                max_recurring = section_options.get("max_recurring_shown", 20)
-                data = builder.prepare_recurring_summary_data(max_shown=max_recurring)
-                summary_html = builder.generate_recurring_summary_section_html(data)
-                html_content += summary_html.replace('class="report-section"', 'class="report-section section-recurring-summary"', 1)
-        elif section_id == "csv_recurring":
-            if builder:
-                max_shown = section_options.get("max_shown", 100)
-                csv_recurring_df = an.get_csv_recurring_details(builder.df)
-                csv_html = builder.generate_csv_recurring_section_html(csv_recurring_df, max_shown)
-                html_content += csv_html.replace('class="report-section"', 'class="report-section section-csv-recurring"', 1)
-        elif section_id == "combined_recurring":
-            if builder:
-                max_shown = section_options.get("max_shown", 100)
-                csv_recurring_df = an.get_csv_recurring_details(builder.df)
-                combined_df = builder.prepare_combined_recurring_data(csv_recurring_df, max_shown)
-                combined_html = builder.generate_combined_recurring_section_html(combined_df, max_shown)
-                html_content += combined_html.replace('class="report-section"', 'class="report-section section-combined-recurring"', 1)
-        elif section_id == "remaining":
-            if builder:
-                # Get configurable limit from section options
-                max_remaining = section_options.get("max_remaining_shown", 100)
-                data = builder.prepare_remaining_charities_data(one_time, top_charities, max_shown=max_remaining)
-                remaining_html = builder.generate_remaining_charities_section_html(data)
-                html_content += remaining_html.replace('class="report-section"', 'class="report-section section-remaining"', 1)
-        elif section_id == "all_charities":
-            if builder:
-                max_shown = section_options.get("max_shown", None)  # None = show all
-                csv_recurring_df = an.get_csv_recurring_details(builder.df)
-                all_charities_df = builder.prepare_all_charities_data(csv_recurring_df, max_shown)
-                all_charities_html = builder.generate_all_charities_section_html(all_charities_df, max_shown)
-                html_content += all_charities_html.replace('class="report-section"', 'class="report-section section-all-charities"', 1)
-        elif section_id == "high_alignment_opportunities":
-            if builder:
-                max_shown = section_options.get("max_shown", None)  # None = show all
-                min_alignment = section_options.get("min_alignment_score", 80)
-                csv_recurring_df = an.get_csv_recurring_details(builder.df)
-
-                # Filter: alignment >= min_alignment AND NOT in rule-based recurring
-                def filter_high_alignment_non_recurring(ein, in_csv, in_rule, evaluation):
-                    # Must NOT be rule-based recurring
-                    if in_rule:
-                        return False
-                    # Must have evaluation with alignment score >= threshold
-                    if evaluation and hasattr(evaluation, 'alignment_score'):
-                        return evaluation.alignment_score >= min_alignment
-                    return False
-
-                opportunities_df = builder.prepare_all_charities_data(
-                    csv_recurring_df, max_shown, filter_func=filter_high_alignment_non_recurring
-                )
-                opportunities_html = builder.generate_all_charities_section_html(
-                    opportunities_df, max_shown,
-                    title=f"High Alignment Opportunities (≥{min_alignment}% alignment, not recurring)"
-                )
-                html_content += opportunities_html.replace('class="report-section"', 'class="report-section section-high-alignment"', 1)
+            handler = handlers.get(section_id)
+            if handler:
+                html_content += handler()
 
     return html_content
 

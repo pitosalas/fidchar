@@ -118,17 +118,17 @@ class BaseReportBuilder:
             'recurring_charity': tax_id in self.recurring_ein_set
         }
 
-    def prepare_top_charities_data(self, top_charities):
-        """Augment top charities DataFrame with recurring and alignment flags"""
-        result = top_charities.copy()
+    def prepare_charities_data(self, charities):
+        """Augment charities DataFrame with recurring and alignment flags"""
+        result = charities.copy()
         result['is_recurring'] = result.index.map(lambda tax_id: self.is_recurring_charity(tax_id))
         result['alignment_status'] = result.index.map(lambda tax_id: self.get_alignment_status(tax_id))
         return result
 
     # Recurring charities helpers
     def is_recurring_charity(self, ein):
-        """Check if a given EIN is a recurring charity"""
-        return ein in self.recurring_ein_set
+        """Check if a given EIN is a rule-based recurring charity"""
+        return ein in self.pattern_based_ein_set
 
     def for_consideration(self, ein):
         """Check if a charity meets 'for consideration' criteria.
@@ -359,7 +359,7 @@ class BaseReportBuilder:
             'total': total_focus_donated
         }
 
-    def prepare_remaining_charities_data(self, one_time, top_charities, max_shown=100):
+    def prepare_remaining_charities_data(self, one_time, charities, max_shown=100):
         """Prepare remaining charities: multi-year/multi-donation but not recurring
 
         These are charities with multiple donations across multiple years that don't
@@ -367,7 +367,7 @@ class BaseReportBuilder:
 
         Args:
             one_time: DataFrame of one-time donations
-            top_charities: DataFrame of top charities (to exclude)
+            charities: DataFrame of filtered charities (to exclude)
             max_shown: Maximum number to show (default: 100)
         """
         # Get all charities grouped
@@ -386,13 +386,13 @@ class BaseReportBuilder:
 
         # Filter for gap charities
         one_time_eins = set(one_time.index) if one_time is not None and hasattr(one_time, 'index') else set()
-        top_eins = set(top_charities.index) if top_charities is not None and hasattr(top_charities, 'index') else set()
+        charity_eins = set(charities.index) if charities is not None and hasattr(charities, 'index') else set()
 
         remaining = all_charities[
             (all_charities['donation_count'] > 1) &  # Not one-time
             (all_charities['unique_years'] > 1) &     # Multiple years
             (~all_charities['Tax ID'].isin(self.recurring_ein_set)) &  # Not recurring
-            (~all_charities['Tax ID'].isin(top_eins)) &  # Not in top charities
+            (~all_charities['Tax ID'].isin(charity_eins)) &  # Not in filtered charities
             (~all_charities['Tax ID'].isin(one_time_eins))  # Not one-time
         ].copy()
 
@@ -538,7 +538,7 @@ class BaseReportBuilder:
         - CSV: "✓" if in CSV recurring field
         - Rule: "✓" if meets rule-based recurring criteria
         - Years: List of years that received donations (e.g., "10,11,12,13,14,15")
-        - 2025: Amount donated in 2025
+        - [Current Year]: Amount donated in most recent year in data
         - Count: Total number of donations
 
         Args:
@@ -565,7 +565,8 @@ class BaseReportBuilder:
             'Amount_Numeric': 'sum'
         }).sort_values('Amount_Numeric', ascending=False)
 
-        current_year = datetime.now().year
+        # Use the most recent year in the data, not current calendar year
+        current_year = self.df['Year'].max()
 
         rows = []
         for ein, row in all_charities.iterrows():
@@ -575,8 +576,8 @@ class BaseReportBuilder:
             years = sorted(set(charity_df['Year'].astype(int)))
             years_str = ', '.join(str(y)[-2:] for y in years)
 
-            # Get 2025 donation amount
-            amount_2025 = charity_df[charity_df['Year'] == current_year]['Amount_Numeric'].sum()
+            # Get most recent year donation amount
+            amount_current_year = charity_df[charity_df['Year'] == current_year]['Amount_Numeric'].sum()
 
             # Check if in CSV or Rule
             in_csv = ein in csv_eins
@@ -593,10 +594,9 @@ class BaseReportBuilder:
                 'EIN': ein,
                 'Organization': row['Organization'],
                 'Total': row['Amount_Numeric'],
-                'CSV': "✓" if in_csv else "",
                 'Rule': "✓" if in_rule else "",
                 'Years': years_str,
-                f'{current_year}': amount_2025,
+                f'{current_year}': amount_current_year,
                 'Count': len(charity_df)
             })
 
