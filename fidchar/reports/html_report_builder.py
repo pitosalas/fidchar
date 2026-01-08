@@ -17,43 +17,6 @@ import shutil
 import os
 
 
-def _build_html_document(tables: List[ReportTable], doc_title, custom_header, custom_footer, custom_styles, container_class, css_files=None):
-    """Build a complete HTML document with Bootstrap CSS.
-
-    Private helper function for building HTML reports with custom header/footer/styles.
-    """
-    hr = HTMLSectionRenderer()
-    sections = "\n".join(hr.render(t) for t in tables)
-
-    styles_block = f"<style>\n{custom_styles}\n</style>" if custom_styles else ""
-
-    # Build CSS links for multiple external files
-    css_links = ""
-    if css_files:
-        for css_file in css_files:
-            css_links += f'  <link rel="stylesheet" href="{css_file}">\n'
-
-    header_block = custom_header if custom_header else ""
-    footer_block = custom_footer if custom_footer else ""
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{doc_title}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-{css_links}  {styles_block}
-</head>
-<body class="small">
-<div class="{container_class}">
-{header_block}
-{sections}
-{footer_block}
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>"""
 
 
 def _extract_section_options(section):
@@ -154,6 +117,48 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         </header>
 {cards_section}
     </div>"""
+
+    def _build_html_document(self, custom_header, custom_footer):
+        """Build a complete HTML document with Bootstrap CSS.
+
+        Uses instance configuration for document title, CSS files, and container class.
+
+        Args:
+            custom_header: HTML content for header section
+            custom_footer: HTML content for footer section
+
+        Returns:
+            Complete HTML document string
+        """
+        # Document configuration (constant for this report type)
+        doc_title = "Charitable Donation Analysis Report"
+        container_class = "container"
+        css_files = ["colors.css", "styles.css"]
+
+        # Build CSS links for external files
+        css_links = ""
+        for css_file in css_files:
+            css_links += f'  <link rel="stylesheet" href="{css_file}">\n'
+
+        header_block = custom_header if custom_header else ""
+        footer_block = custom_footer if custom_footer else ""
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{doc_title}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+{css_links}</head>
+<body class="small">
+<div class="{container_class}">
+{header_block}
+{footer_block}
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>"""
 
     def _render_two_column_table(self, df_data, title=None):
         """Render DataFrame data as two-column layout for print.
@@ -302,14 +307,9 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         columns_html = self._render_two_column_table(df_data)
 
-        # Get threshold values from config
-        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
-        min_years = pattern_config.get('min_years', 6)
-        min_amount = pattern_config.get('min_amount', 1000)
-
         return templates.recurring_charities_section(
-            min_years=min_years,
-            min_amount=min_amount,
+            min_years=self.recurring_min_years,
+            min_amount=self.recurring_min_amount,
             count=data['count'],
             total=data['total'],
             columns_html=columns_html
@@ -391,14 +391,9 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         if stopped_count > 0:
             breakdown += f", {stopped_count} stopped"
 
-        # Get threshold values from config
-        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
-        min_years = pattern_config.get('min_years', 6)
-        min_amount = pattern_config.get('min_amount', 1000)
-
         return templates.combined_recurring_section(
-            min_years=min_years,
-            min_amount=min_amount,
+            min_years=self.recurring_min_years,
+            min_amount=self.recurring_min_amount,
             total_count=total_count,
             display_count=len(display_df),
             active_count=active_count,
@@ -454,17 +449,12 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         showing_text = f"showing all {total_charities}" if max_shown is None else f"showing top {len(display_df)} of {total_charities}"
 
-        # Get threshold values from config
-        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
-        min_years = pattern_config.get('min_years', 6)
-        min_amount = pattern_config.get('min_amount', 1000)
-
         return templates.all_charities_section(
             title=title,
             showing_text=showing_text,
             rule_count=rule_count,
-            min_years=min_years,
-            min_amount=min_amount,
+            min_years=self.recurring_min_years,
+            min_amount=self.recurring_min_amount,
             table_html=table_html,
             total_amount=total_amount
         )
@@ -491,15 +481,10 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
 
         columns_html = self._render_two_column_table(df_data)
 
-        # Get threshold values from config
-        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
-        min_years = pattern_config.get('min_years', 6)
-        min_amount = pattern_config.get('min_amount', 1000)
-
         return templates.remaining_charities_section(
             count=data['count'],
-            min_years=min_years,
-            min_amount=min_amount,
+            min_years=self.recurring_min_years,
+            min_amount=self.recurring_min_amount,
             columns_html=columns_html,
             total=data['total']
         )
@@ -633,6 +618,11 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         self.stopped_total = stopped_recurring["Total_Amount"].sum()
         self.stopped_count = len(stopped_recurring)
 
+        # Precompute recurring configuration (used in multiple template calls)
+        pattern_config = self.config.get('recurring_charity', {}).get('pattern_based', {})
+        self.recurring_min_years = pattern_config.get('min_years', 6)
+        self.recurring_min_amount = pattern_config.get('min_amount', 1000)
+
         # Get exec section options from config
         exec_options = {}
         exec_enabled = False
@@ -736,14 +726,9 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         # styles.css: All screen and print styles (includes @media print section)
 
         # Build complete HTML document
-        html_content = _build_html_document(
-            [],
-            doc_title="Charitable Donation Analysis Report",
+        html_content = self._build_html_document(
             custom_header=custom_header + body_content,
-            custom_footer=custom_footer,
-            custom_styles=None,
-            container_class="container",
-            css_files=["colors.css", "styles.css"]
+            custom_footer=custom_footer
         )
 
         # Get output directory from config
