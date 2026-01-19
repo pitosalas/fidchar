@@ -1,6 +1,6 @@
 # Charitable Donation Analysis System - Current State
 
-*Last Updated: January 7, 2026*
+*Last Updated: January 18, 2026*
 
 ## 🚨 URGENT: Known Issues Requiring Attention
 
@@ -337,6 +337,41 @@ charapi_config_path: "/Users/pitosalas/mydev/charapi/charapi/config/config.yaml"
 - Browser with Print to PDF capability
 
 ## Recent Development History
+
+### January 18, 2026 - CSV Export Enhancement
+
+**Changes**:
+Added two new columns to `charity_export.csv`:
+
+1. **DonationYears** - Comma-separated list of years when donations were made (e.g., "2019, 2020, 2022, 2023"), sorted chronologically
+2. **TotalDonations** - Sum of all donation amounts ever made to that charity
+
+Fixed ServiceArea column (was Geography, always empty):
+- Renamed column from `Geography` to `ServiceArea` to match HTML report
+- Changed data source from `client_geography` to `service_areas` (same as HTML report)
+- Now correctly shows values like "US", "GLOBAL", "MA"
+
+**Implementation** (main.py lines 118-135):
+```python
+# ServiceArea extraction (lines 118-123)
+service_areas_data = vals.get('service_areas', [])
+if service_areas_data:
+    if isinstance(service_areas_data, list):
+        service_area = ", ".join(service_areas_data)
+    else:
+        service_area = str(service_areas_data)
+
+# Years with donations (lines 131-135)
+years = sorted(org_df["Submit Date"].dt.year.unique())
+donation_years = ", ".join(str(y) for y in years)
+total_donations = org_df["Amount_Numeric"].sum()
+```
+
+**Updated CSV Columns** (11 total):
+EIN, Name, Mission, Budget, ServiceArea, Alignment, MostRecentAmount, MostRecentDate, IsRecurring, DonationYears, TotalDonations
+
+**Files Modified**:
+- `fidchar/main.py`: Added DonationYears, TotalDonations, and fixed ServiceArea extraction
 
 ### January 7, 2026 - Code Quality Refactoring: Reduced Parameter Counts & Eliminated Duplication
 

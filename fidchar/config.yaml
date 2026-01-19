@@ -36,14 +36,14 @@ sections:
 # All Charities - comprehensive list with CSV/Rule indicators, years, current year amount
   - name: all_charities
     include: true
-    max_shown: 45
+    max_shown: 60
 
 
 # High-alignment charities that aren't recurring - potential recurring donation candidates
   - name: high_alignment_opportunities
     min_alignment_score: 80  # Minimum alignment score (default: 80)
-    max_shown: 20  # Omit to show all
-    include: false
+    max_shown: 40  # Omit to show all
+    include: true
 
   - name: remaining
     # Remaining Charities - multi-year, multi-donation but not recurring
@@ -61,7 +61,7 @@ sections:
   # Detailed Analysis of Charities
   - name: detailed
     include_descriptions: true
-    max_shown: 45  # Limit the number of charity detail cards (omit to show all)
+    max_shown: 60  # Limit the number of charity detail cards (omit to show all)
     include: true
 
   - name: definitions
@@ -83,7 +83,7 @@ charities_min_grant: 1000  # Minimum total donation amount to be included
 # Recurring charity determination - two methods available
 recurring_charity:
   # Pattern-based: Analyze YOUR donation history over multiple years
-  pattern_based:
+  pattern_based:s
     enabled: true
     count: 15           # Look at last 15 years
     min_years: 6        # Must have donated in at least 6 of those years
@@ -92,6 +92,11 @@ recurring_charity:
   # CSV field-based: Use Fidelity's "Recurring" designation from the CSV
   csv_field_based:
     enabled: true
+
+# Optional: Export charity data to CSV for external processing
+export_csv:
+  enabled: true  # Set to true to enable CSV export
+  output_file: "output/charity_export.csv"
 
 # For consideration criteria (charities to include in detailed analysis even if not in top N)
 # These charities meet quality thresholds and warrant consideration

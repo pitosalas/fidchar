@@ -97,6 +97,70 @@ def main():
         char_details = an.get_charity_details(df, filtered_charities)
         graph_info = vis.create_charity_yearly_graphs(filtered_charities, char_details, output_dir)
 
+
+        # Optionally export charity data to CSV for external processing
+        export_csv_cfg = config.get("export_csv", {})
+        if export_csv_cfg.get("enabled", False):
+            output_csv = export_csv_cfg.get("output_file", "output/charity_export.csv")
+            os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+            # Prepare rows: EIN, Name, Mission, Budget, Geography, Alignment, Most Recent Amount, Most Recent Date, Is Recurring
+            rows = []
+            for ein, eval_obj in char_evals.items():
+                if not eval_obj:
+                    continue
+                name = getattr(eval_obj, 'organization_name', None) or getattr(eval_obj, 'name', None) or ''
+                mission = getattr(eval_obj, 'summary', None) or ''
+                budget = ''
+                service_area = ''
+                if hasattr(eval_obj, 'data_field_values'):
+                    vals = eval_obj.data_field_values
+                    budget = vals.get('budget', '') or vals.get('budget_size', '') or ''
+                    service_areas_data = vals.get('service_areas', [])
+                    if service_areas_data:
+                        if isinstance(service_areas_data, list):
+                            service_area = ", ".join(service_areas_data)
+                        else:
+                            service_area = str(service_areas_data)
+                alignment = getattr(eval_obj, 'alignment_score', None)
+                # Donation history info
+                org_df = df[df["Tax ID"] == ein]
+                if not org_df.empty:
+                    most_recent_row = org_df.sort_values("Submit Date", ascending=False).iloc[0]
+                    most_recent_amt = most_recent_row["Amount_Numeric"]
+                    most_recent_date = most_recent_row["Submit Date"].strftime("%Y-%m-%d")
+                    # Years with donations (sorted)
+                    years = sorted(org_df["Submit Date"].dt.year.unique())
+                    donation_years = ", ".join(str(y) for y in years)
+                    # Total donations ever
+                    total_donations = org_df["Amount_Numeric"].sum()
+                else:
+                    most_recent_amt = ''
+                    most_recent_date = ''
+                    donation_years = ''
+                    total_donations = ''
+                # Recurring status (algorithmic)
+                is_recurring = ein in pattern_based_ein_set
+                rows.append({
+                    'EIN': ein,
+                    'Name': name,
+                    'Mission': mission,
+                    'Budget': budget,
+                    'ServiceArea': service_area,
+                    'Alignment': alignment if alignment is not None else '',
+                    'MostRecentAmount': most_recent_amt,
+                    'MostRecentDate': most_recent_date,
+                    'IsRecurring': 'Yes' if is_recurring else 'No',
+                    'DonationYears': donation_years,
+                    'TotalDonations': total_donations
+                })
+            import csv
+            fieldnames = ['EIN', 'Name', 'Mission', 'Budget', 'ServiceArea', 'Alignment', 'MostRecentAmount', 'MostRecentDate', 'IsRecurring', 'DonationYears', 'TotalDonations']
+            with open(output_csv, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+            print(f"Exported charity data to CSV: {output_csv}")
+
         # Generate HTML report
         print("Generating HTML report...")
 
