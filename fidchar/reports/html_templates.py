@@ -54,8 +54,8 @@ def all_charities_section(title, showing_text, rule_count, min_years, min_amount
     return f"""
     <div class="report-section">
         <h2 class="section-title">{title}</h2>
-        <p>Charities ordered by total donation amount ({showing_text})</p>
-        <p>{rule_count} meet rule-based recurring criteria (≥{min_years} years, ≥${min_amount:,}/year)</p>
+        <p>Complete list of all charities from your donation history, ordered by total amount donated ({showing_text})</p>
+        <p>CSV and Rule columns indicate recurring status: {rule_count} meet rule-based recurring criteria (≥{min_years} years, ≥${min_amount:,}/year)</p>
         {table_html}
         <p class="fw-bold mt-4">
             Total donated to all charities: ${total_amount:,.2f}

@@ -83,7 +83,7 @@ charities_min_grant: 1000  # Minimum total donation amount to be included
 # Recurring charity determination - two methods available
 recurring_charity:
   # Pattern-based: Analyze YOUR donation history over multiple years
-  pattern_based:s
+  pattern_based:
     enabled: true
     count: 15           # Look at last 15 years
     min_years: 6        # Must have donated in at least 6 of those years

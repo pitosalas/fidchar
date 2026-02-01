@@ -504,6 +504,11 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
         total_donated = org_donations["Amount_Numeric"].sum()
         donation_count = len(org_donations)
 
+        # Get most recent donation info
+        most_recent_donation = org_donations.loc[org_donations["Submit Date"].idxmax()]
+        most_recent_date = most_recent_donation["Submit Date"].strftime("%b %d, %Y")
+        most_recent_amount = most_recent_donation["Amount_Numeric"]
+
         # Get formatted org name with badges
         charity_info = self.format_charity_info(tax_id, org_name, total_donated)
         org_name_with_badges = charity_info['html_org']
@@ -533,7 +538,7 @@ class HTMLReportBuilder(brb.BaseReportBuilder):
                     "Tax ID": tax_id,
                     "Mission": tags,
                     "Service Area": service_area,
-                    "Donations": f"${total_donated:,.0f} ({donation_count}x)"
+                    "Donations": f"${total_donated:,.0f} ({donation_count}x) | Latest: ${most_recent_amount:,.0f} on {most_recent_date}"
                 }
             )
         ]

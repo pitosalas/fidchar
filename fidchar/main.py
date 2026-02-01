@@ -16,7 +16,7 @@ from fidchar.reports import base_report_builder as brb
 
 def load_config():
     """Load configuration from YAML file."""
-    config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+    config_path = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
     try:
         with open(config_path, "r") as f:
             return yaml.safe_load(f)
