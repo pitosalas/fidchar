@@ -12,6 +12,7 @@ from fidchar.core import visualization as vis
 from fidchar.reports import charity_evaluator as ev
 from fidchar.reports import html_report_builder as hrb
 from fidchar.reports import base_report_builder as brb
+from fidchar.reports.base_report_builder import ReportData
 
 
 def load_config():
@@ -164,7 +165,16 @@ def main():
         # Generate HTML report
         print("Generating HTML report...")
 
-        html_bldr = hrb.HTMLReportBuilder(df, config, char_details, graph_info, char_evals, recurring_ein_set, pattern_based_ein_set)
+        # Create report data container
+        report_data = ReportData(
+            charity_details=char_details,
+            graph_info=graph_info,
+            evaluations=char_evals,
+            recurring_ein_set=recurring_ein_set,
+            pattern_based_ein_set=pattern_based_ein_set
+        )
+
+        html_bldr = hrb.HTMLReportBuilder(df, config, report_data)
         html_bldr.generate_report(category_totals, yearly_amounts, yearly_counts, one_time,
                                     stopped_recur, filtered_charities)
 

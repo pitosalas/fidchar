@@ -48,14 +48,12 @@ def combined_recurring_section(min_years, min_amount, total_count, display_count
     </div>"""
 
 
-def all_charities_section(title, showing_text, rule_count, min_years, min_amount,
-                          table_html, total_amount):
-    """Template for all charities section."""
+def all_charities_section(title, subtitle, table_html, total_amount):
+    """Template for all charities section with configurable subtitle."""
     return f"""
     <div class="report-section">
         <h2 class="section-title">{title}</h2>
-        <p>Complete list of all charities from your donation history, ordered by total amount donated ({showing_text})</p>
-        <p>CSV and Rule columns indicate recurring status: {rule_count} meet rule-based recurring criteria (≥{min_years} years, ≥${min_amount:,}/year)</p>
+        <p>{subtitle}</p>
         {table_html}
         <p class="fw-bold mt-4">
             Total donated to all charities: ${total_amount:,.2f}

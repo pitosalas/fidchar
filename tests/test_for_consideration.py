@@ -11,7 +11,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'fidchar'))
 
-from reports.base_report_builder import BaseReportBuilder
+from reports.base_report_builder import BaseReportBuilder, ReportData
 
 
 class MockEvaluation:
@@ -52,13 +52,17 @@ class TestForConsideration:
         self.charity_evaluations = {}
 
         # Create base report builder
+        report_data = ReportData(
+            charity_details={},
+            graph_info={},
+            evaluations=self.charity_evaluations,
+            recurring_ein_set=set(),
+            pattern_based_ein_set=set()
+        )
         self.builder = BaseReportBuilder(
             df=self.df,
             config=self.config,
-            charity_details={},
-            graph_info={},
-            charity_evaluations=self.charity_evaluations,
-            recurring_ein_set=set()
+            report_data=report_data
         )
 
     def test_returns_false_when_disabled(self):
@@ -191,13 +195,17 @@ class TestForConsiderationBadge:
             )
         }
 
+        report_data = ReportData(
+            charity_details={},
+            graph_info={},
+            evaluations=self.charity_evaluations,
+            recurring_ein_set=set(),
+            pattern_based_ein_set=set()
+        )
         self.builder = BaseReportBuilder(
             df=self.df,
             config=self.config,
-            charity_details={},
-            graph_info={},
-            charity_evaluations=self.charity_evaluations,
-            recurring_ein_set=set()
+            report_data=report_data
         )
 
     def test_badge_appears_in_formatted_output(self):
@@ -224,7 +232,7 @@ class TestForConsiderationBadge:
 
     def test_badge_shown_with_recurring_badge(self):
         """Should NOT show CONSDR badge when charity is recurring"""
-        self.builder.recurring_ein_set = {'12-3456789'}
+        self.builder.pattern_based_ein_set = {'12-3456789'}
         result = self.builder.format_charity_info('12-3456789', 'Test Charity')
         assert 'RECUR' in result['html_org']
         assert 'CONSDR' not in result['html_org']  # Should NOT show for recurring charities

@@ -1,5 +1,3 @@
-def test_export_csv_logic():
-def run():
 import os
 import csv
 import tempfile

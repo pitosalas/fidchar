@@ -3,19 +3,30 @@
 This module contains shared logic for extracting and processing data,
 independent of output format (HTML, Markdown, Text).
 """
+from dataclasses import dataclass, field
 import pandas as pd
+
+
+@dataclass
+class ReportData:
+    """Container for all processed report data."""
+    charity_details: dict
+    graph_info: dict
+    evaluations: dict
+    recurring_ein_set: set = field(default_factory=set)
+    pattern_based_ein_set: set = field(default_factory=set)
 
 class BaseReportBuilder:
     """Base class for report builders with shared state and common logic"""
 
-    def __init__(self, df, config, charity_details, graph_info, charity_evaluations, recurring_ein_set=None, pattern_based_ein_set=None):
+    def __init__(self, df, config, report_data):
         self.df = df
         self.config = config
-        self.charity_details = charity_details
-        self.graph_info = graph_info
-        self.charity_evaluations = charity_evaluations
-        self.recurring_ein_set = recurring_ein_set or set()
-        self.pattern_based_ein_set = pattern_based_ein_set or set()
+        self.charity_details = report_data.charity_details
+        self.graph_info = report_data.graph_info
+        self.charity_evaluations = report_data.evaluations
+        self.recurring_ein_set = report_data.recurring_ein_set
+        self.pattern_based_ein_set = report_data.pattern_based_ein_set
 
     def extract_charity_details(self, tax_id):
         """Extract common charity details - single implementation"""
