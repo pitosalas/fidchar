@@ -20,3 +20,4 @@ cache/*
 data.csv
 uv.lock
 .environments
+.coverage
